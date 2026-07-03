@@ -99,15 +99,8 @@ int native_bridge_pkcs12_extract(
 
     if (!parsed)
     {
-        unsigned long err = ERR_get_error();
-        int reason = ERR_GET_REASON(err);
         PKCS12_free(p12);
-        
-        if (reason == PKCS12_R_MAC_VERIFY_FAILURE || reason == PKCS12_R_MAC_GENERATION_ERROR)
-        {
-            return -2;
-        }
-        return -3;
+        return -2;
     }
 
     BIO *certBIO = BIO_new(BIO_s_mem());

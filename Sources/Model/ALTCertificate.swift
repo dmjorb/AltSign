@@ -93,7 +93,23 @@ public final class ALTCertificate: NSObject {
             throw ALTCertificateError.invalidFormat
         }
 
-        let result = try OpenSSLBridge.extractPKCS12(p12Data, password: password)
+        let result: (cert: Data, key: Data)
+        do {
+            result = try OpenSSLBridge.extractPKCS12(p12Data, password: password)
+        } catch let error as SwiftBridge.ALTCertificateError {
+            switch error {
+            case .invalidFormat:
+                throw ALTCertificateError.invalidFormat
+            case .decryptionFailed:
+                throw ALTCertificateError.decryptionFailed
+            case .extractionFailed:
+                throw ALTCertificateError.extractionFailed
+            case .memoryAllocationFailed:
+                throw ALTCertificateError.memoryAllocationFailed
+            }
+        } catch {
+            throw ALTCertificateError.extractionFailed
+        }
 
         var pemData = result.cert
 
