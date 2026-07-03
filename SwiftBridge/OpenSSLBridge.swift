@@ -227,22 +227,37 @@ public enum OpenSSLBridge {
 
     public static func createPKCS12(
         cert: Data,
-        key: Data,
+        key: Data?,
         password: String
     ) -> Data? {
 
-        verboseLog("[AltSign] OpenSSLBridge.createPKCS12 started. Cert size: \(cert.count) bytes, Key size: \(key.count) bytes")
+        verboseLog("[AltSign] OpenSSLBridge.createPKCS12 started. Cert size: \(cert.count) bytes, hasKey: \(key != nil)")
 
         var outPtr: UnsafeMutablePointer<UInt8>?
         var outLen: Int32 = 0
 
-        let ok: Int32 = cert.withUnsafeBytes { cbuf in
-            key.withUnsafeBytes { kbuf in
+        let ok: Int32
+        if let key {
+            ok = cert.withUnsafeBytes { cbuf in
+                key.withUnsafeBytes { kbuf in
+                    native_bridge_pkcs12_create(
+                        cbuf.bindMemory(to: UInt8.self).baseAddress,
+                        Int32(cert.count),
+                        kbuf.bindMemory(to: UInt8.self).baseAddress,
+                        Int32(key.count),
+                        password,
+                        &outPtr,
+                        &outLen
+                    )
+                }
+            }
+        } else {
+            ok = cert.withUnsafeBytes { cbuf in
                 native_bridge_pkcs12_create(
                     cbuf.bindMemory(to: UInt8.self).baseAddress,
                     Int32(cert.count),
-                    kbuf.bindMemory(to: UInt8.self).baseAddress,
-                    Int32(key.count),
+                    nil,
+                    0,
                     password,
                     &outPtr,
                     &outLen

@@ -191,12 +191,17 @@ int native_bridge_pkcs12_create(
     int32_t *out_p12_len)
 {
     X509 *cert = read_cert(cert_bytes, cert_len);
-    EVP_PKEY *key = read_private_key(key_bytes, key_len);
-
-    if (!cert || !key) {
-        if (cert) X509_free(cert);
-        if (key) EVP_PKEY_free(key);
+    if (!cert) {
         return 0;
+    }
+
+    EVP_PKEY *key = nullptr;
+    if (key_bytes && key_len > 0) {
+        key = read_private_key(key_bytes, key_len);
+        if (!key) {
+            X509_free(cert);
+            return 0;
+        }
     }
 
     PKCS12 *p12 =

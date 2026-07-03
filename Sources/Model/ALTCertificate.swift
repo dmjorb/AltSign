@@ -210,14 +210,11 @@ public final class ALTCertificate: NSObject {
 
     public func encryptedP12Data(password: String) -> Data? {
 
-        guard
-            let certData = data,
-            let keyData = privateKey
-        else { return nil }
+        guard let certData = data else { return nil }
 
         return OpenSSLBridge.createPKCS12(
             cert: certData,
-            key: keyData,
+            key: privateKey,
             password: password
         )
     }
