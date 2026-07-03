@@ -133,30 +133,53 @@ public enum OpenSSLBridge {
             )
         }
 
-        guard ok == 1,
-              let certPtr,
-              let keyPtr else {
-            if let certPtr { native_bridge_free(certPtr) }
-            if let keyPtr { native_bridge_free(keyPtr) }
+        if ok != 1 {
+            let reason: String
+            switch ok {
+            case -1:
+                reason = "Invalid PKCS12 format"
+            case -2:
+                reason = "Decryption failed (incorrect password)"
+            case -4:
+                reason = "Memory allocation failed"
+            default:
+                reason = "General extraction failure"
+            }
             
-            debugLog("[AltSign] OpenSSLBridge.extractPKCS12 failed: native pkcs12 extraction returned error or null pointers. Data size: \(data.count) bytes")
+            // only log 'nil' or '' password entries for diagnostics
+            let passwordSuffix: String
+            if password == nil || password == "" {
+                passwordSuffix = ", password: \(String(describing: password))"
+            } else {
+                passwordSuffix = ""
+            }
+            debugLog("[AltSign] OpenSSLBridge.extractPKCS12 failed: \(reason). Return code: \(ok), Data size: \(data.count) bytes\(passwordSuffix)")
             
             switch ok {
             case -1:
                 throw ALTCertificateError.invalidFormat
             case -2:
                 throw ALTCertificateError.decryptionFailed
+            case -4:
+                throw ALTCertificateError.memoryAllocationFailed
             default:
                 throw ALTCertificateError.extractionFailed
             }
         }
-
+        
+        guard let certPtr, let keyPtr else {
+            if let certPtr { native_bridge_free(certPtr) }
+            if let keyPtr { native_bridge_free(keyPtr) }
+            debugLog("[AltSign] OpenSSLBridge.extractPKCS12 failed: extraction returned success (1) but output pointers were null.")
+            throw ALTCertificateError.extractionFailed
+        }
+        
         let cert = Data(bytes: certPtr, count: Int(certLen))
         let key  = Data(bytes: keyPtr,  count: Int(keyLen))
-
+        
         native_bridge_free(certPtr)
         native_bridge_free(keyPtr)
-
+        
         verboseLog("[AltSign] OpenSSLBridge.extractPKCS12 succeeded. Extracted cert size: \(cert.count) bytes, key size: \(key.count) bytes")
         return (cert, key)
     }

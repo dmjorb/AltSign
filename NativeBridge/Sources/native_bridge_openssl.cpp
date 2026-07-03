@@ -112,6 +112,15 @@ int native_bridge_pkcs12_extract(
 
     BIO *certBIO = BIO_new(BIO_s_mem());
     BIO *keyBIO  = BIO_new(BIO_s_mem());
+    
+    if (!certBIO || !keyBIO) {
+        if (certBIO) BIO_free(certBIO);
+        if (keyBIO) BIO_free(keyBIO);
+        EVP_PKEY_free(key);
+        X509_free(cert);
+        PKCS12_free(p12);
+        return -4;
+    }
 
     PEM_write_bio_X509(certBIO, cert);
     PEM_write_bio_PrivateKey(keyBIO, key, nullptr, nullptr, 0, nullptr, nullptr);
@@ -124,6 +133,12 @@ int native_bridge_pkcs12_extract(
     EVP_PKEY_free(key);
     X509_free(cert);
     PKCS12_free(p12);
+
+    if (!*out_cert || !*out_key) {
+        if (*out_cert) { free(*out_cert); *out_cert = nullptr; }
+        if (*out_key) { free(*out_key); *out_key = nullptr; }
+        return -4;
+    }
 
     return 1;
 }
@@ -157,6 +172,15 @@ int native_bridge_x509_parse(
     *out_name = strdup((const char *)cname);
     *out_serial = strdup(hex);
 
+    if (!*out_name || !*out_serial) {
+        if (*out_name) { free(*out_name); *out_name = nullptr; }
+        if (*out_serial) { free(*out_serial); *out_serial = nullptr; }
+        BN_free(bn);
+        OPENSSL_free(hex);
+        X509_free(cert);
+        return 0;
+    }
+
     BN_free(bn);
     OPENSSL_free(hex);
     X509_free(cert);
@@ -184,8 +208,20 @@ int native_bridge_pkcs12_create(
 
     PKCS12 *p12 =
         PKCS12_create(password, "", key, cert, nullptr, 0,0,0,0,0);
+    if (!p12) {
+        EVP_PKEY_free(key);
+        X509_free(cert);
+        return 0;
+    }
 
     BIO *out = BIO_new(BIO_s_mem());
+    if (!out) {
+        PKCS12_free(p12);
+        EVP_PKEY_free(key);
+        X509_free(cert);
+        return 0;
+    }
+
     i2d_PKCS12_bio(out, p12);
 
     *out_p12 = nb_copy_bio(out, out_p12_len);
@@ -194,6 +230,10 @@ int native_bridge_pkcs12_create(
     PKCS12_free(p12);
     EVP_PKEY_free(key);
     X509_free(cert);
+
+    if (!*out_p12) {
+        return 0;
+    }
 
     return 1;
 }
