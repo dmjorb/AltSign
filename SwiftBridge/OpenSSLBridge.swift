@@ -139,7 +139,7 @@ public enum OpenSSLBridge {
             if let certPtr { native_bridge_free(certPtr) }
             if let keyPtr { native_bridge_free(keyPtr) }
             
-            debugLog("[AltSign] OpenSSLBridge.extractPKCS12 failed: native pkcs12 extraction returned error or null pointers. Data size: \(data.count) bytes, password: \(String(describing: password))")
+            debugLog("[AltSign] OpenSSLBridge.extractPKCS12 failed: native pkcs12 extraction returned error or null pointers. Data size: \(data.count) bytes")
             
             switch ok {
             case -1:
