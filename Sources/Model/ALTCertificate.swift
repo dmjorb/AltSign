@@ -95,7 +95,7 @@ public final class ALTCertificate: NSObject {
 
         let result: (cert: Data, key: Data)
         do {
-            result = try OpenSSLBridge.extractPKCS12(p12Data, password: password)
+            result = try CertificatesManager.extractPKCS12(p12Data, password: password)
         } catch let error as SwiftBridge.ALTCertificateError {
             switch error {
             case .invalidFormat:
@@ -125,7 +125,7 @@ public final class ALTCertificate: NSObject {
             pemData = content.data(using: .utf8)!
         }
 
-        guard let parsed = OpenSSLBridge.parseCertificate(pemData) else {
+        guard let parsed = CertificatesManager.parseCertificate(pemData) else {
             throw ALTCertificateError.extractionFailed
         }
 
@@ -167,7 +167,7 @@ public final class ALTCertificate: NSObject {
         }
 
         guard let parsed =
-            OpenSSLBridge.parseCertificate(pemData)
+            CertificatesManager.parseCertificate(pemData)
         else { return nil }
 
         var serial = parsed.serial
@@ -212,7 +212,7 @@ public final class ALTCertificate: NSObject {
 
         guard let certData = data else { return nil }
 
-        return OpenSSLBridge.createPKCS12(
+        return CertificatesManager.createPKCS12(
             cert: certData,
             key: privateKey,
             password: password

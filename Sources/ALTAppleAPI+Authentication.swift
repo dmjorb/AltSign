@@ -528,3 +528,35 @@ private extension ALTAppleAPI {
         return request
     }
 }
+
+// MARK: - Data decryption helpers (used only within this file)
+
+private extension Data {
+
+    /* AES-CBC-PKCS7: key and IV derived from the SRP session via HMAC */
+    func decryptedCBC(context: GSAContext) -> Data? {
+        guard let key = context.makeHMACKey("extra data key:"),
+              let iv  = context.makeHMACKey("extra data iv:")
+        else { return nil }
+
+        return CoreCryptoBridge.aesCBCDecrypt(key: key, iv: iv, ciphertext: self)
+    }
+
+    /* AES-GCM: layout is [3-byte version | 16-byte IV | ciphertext | 16-byte tag] */
+    func decryptedGCM(context: GSAContext) -> Data? {
+        guard let sessionKey = context.sessionKey else { return nil }
+
+        let versionSize = 3   // version prefix — treated as AAD
+        let ivSize      = 16  // nonce
+        let tagSize     = 16  // GCM authentication tag
+
+        guard self.count > versionSize + ivSize + tagSize else { return nil }
+
+        let aad        = Data(self[..<versionSize])
+        let nonce      = Data(self[versionSize ..< versionSize + ivSize])
+        let ciphertext = Data(self[versionSize + ivSize ..< self.count - tagSize])
+        let tag        = Data(self[(self.count - tagSize)...])
+
+        return CoreCryptoBridge.aesGCMDecrypt(key: sessionKey, nonce: nonce, aad: aad, ciphertext: ciphertext, tag: tag)
+    }
+}

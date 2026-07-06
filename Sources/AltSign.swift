@@ -6,7 +6,6 @@
 //  Copyright © 2026 SideStore. All rights reserved.
 //
 
-import Foundation
 import SwiftBridge
 
 public enum AltSign {

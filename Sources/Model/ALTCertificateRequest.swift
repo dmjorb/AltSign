@@ -27,7 +27,7 @@ public final class ALTCertificateRequest: NSObject {
 
     public static func makeRequest() -> ALTCertificateRequest? {
 
-        let subject = OpenSSLBridge.CSRSubject(
+        let subject = CertificatesManager.CSRSubject(
             country: "US",
             state: "CA",
             locality: "Los Angeles",
@@ -35,7 +35,7 @@ public final class ALTCertificateRequest: NSObject {
             commonName: "AltSign"
         )
 
-        guard let result = try? OpenSSLBridge.generateCSR(subject: subject)
+        guard let result = try? CertificatesManager.generateCSR(subject: subject)
         else { return nil }
 
         return ALTCertificateRequest(

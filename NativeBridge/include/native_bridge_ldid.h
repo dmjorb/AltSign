@@ -2,7 +2,8 @@
 //  native_bridge_ldid.h
 //  AltSign
 //
-//  Created by Magesh K on 25/02/26.
+//  Created by Magesh K on 07/07/26.
+//  Copyright © 2026 SideStore. All rights reserved.
 //
 
 
@@ -13,15 +14,16 @@
 extern "C" {
 #endif
 
-char *native_bridge_ldid_entitlements(const char *path);
-char *native_bridge_ldid_requirements(const char *path);
 
-bool native_bridge_ldid_sign(
+
+int native_bridge_ldid_sign(
     const char *appPath,
-    const unsigned char *p12Bytes,
-    int p12Length,
-    const char *(*entitlement_callback)(const char *relativePath),
-    void (*progress_callback)(void),
+    const uint8_t *keyData,
+    int32_t keyLen,
+    const char *(*entitlement_callback)(const char *relativePath, void *context),
+    void *entitlement_context,
+    void (*progress_callback)(void *context),
+    void *progress_context,
     char **errorMessage
 );
 

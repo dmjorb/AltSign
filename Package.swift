@@ -40,12 +40,10 @@ let package = Package(
         .target(
             name: "NativeBridge",
             dependencies: [
-                "OpenSSL",
             ],
             path: ".",
             sources: [
                 "NativeBridge/Sources",
-                "ldid/alt_ldid.cpp",
                 
                 "Dependencies/minizip/ioapi.c",
                 "Dependencies/minizip/mztools.c",
@@ -98,7 +96,6 @@ let package = Package(
 
             cxxSettings: [
                 .headerSearchPath("NativeBridge/include"),
-                .headerSearchPath("ldid"),
                 .headerSearchPath("Dependencies/corecrypto/include"),
                 .unsafeFlags(["-w"])
             ],
@@ -116,14 +113,17 @@ let package = Package(
         // ─────────────────────────
         .target(
             name: "SwiftBridge",
-            dependencies: ["NativeBridge"],
+            dependencies: ["NativeBridge", "OpenSSL"],
             path: "SwiftBridge",
-            sources: [ "." ]
+            sources: [ "." ],
+            linkerSettings: [
+                .linkedFramework("CryptoKit"),      // AES-GCM, HMAC-SHA256, SHA256
+            ]
         ),
-//
-//        // ─────────────────────────
-//        // Main Swift target
-//        // ─────────────────────────
+
+       // ─────────────────────────
+       // Main Swift target
+       // ─────────────────────────
         .target(
             name: "AltSign",
             dependencies: ["SwiftBridge"],

@@ -6,8 +6,6 @@
 //  Copyright © 2026 SideStore. All rights reserved.
 //
 
-import Foundation
-
 public enum AltSignLogging {
     public private(set) static var isLoggingEnabled = false
 
