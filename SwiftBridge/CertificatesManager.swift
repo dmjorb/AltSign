@@ -37,38 +37,87 @@ public enum CertificatesManager {
         case operationFailed(String)
     }
 
-    static func readCert(_ data: Data) -> OpaquePointer? {
+    private static func readBIO<T>(_ data: Data, reader: (OpaquePointer?) -> T?) -> T? {
         let bio = BIO_new(BIO_s_mem())
         defer { BIO_free(bio) }
         _ = data.withUnsafeBytes { buf in
             BIO_write(bio, buf.baseAddress, Int32(data.count))
         }
-        
-        // Try DER format first
-        if let cert = d2i_X509_bio(bio, nil) {
+        return reader(bio)
+    }
+
+    private static func parse<T>(
+        _ data: Data,
+        boundaryKeyword: String,
+        pemReader: (OpaquePointer?) -> T?,
+        derReader: (OpaquePointer?) -> T?
+    ) -> T? {
+        // Try raw PEM format first
+        if let parsed = readBIO(data, reader: pemReader) {
+            return parsed
+        }
+
+        guard let text = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+
+        let lines = text.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+
+        guard let beginIndex = lines.firstIndex(where: { $0.contains("-----BEGIN ") && $0.contains("\(boundaryKeyword)-----") }),
+              let endIndex = lines[beginIndex...].firstIndex(where: { $0.contains("-----END ") && $0.contains("\(boundaryKeyword)-----") }) else {
+            return nil
+        }
+
+        let blockLines = Array(lines[beginIndex...endIndex])
+        let normalizedPEM = blockLines.joined(separator: "\n")
+
+        if let parsed = readBIO(Data(normalizedPEM.utf8), reader: pemReader) {
+            return parsed
+        }
+
+        // Fallback to DER and see if readable
+        let base64Body = lines[(beginIndex + 1)..<endIndex]
+            .filter { !$0.hasPrefix("Bag Attributes") }
+            .filter { !$0.hasPrefix("    ") }
+            .filter { !$0.hasPrefix("localKeyID:") }
+            .filter { !$0.hasPrefix("friendlyName:") }
+            .filter { !$0.hasPrefix("Key Attributes:") }
+            .joined()
+
+        guard let derData = Data(base64Encoded: base64Body, options: .ignoreUnknownCharacters) else {
+            return nil
+        }
+
+        return readBIO(derData, reader: derReader)
+    }
+
+    static func readCert(_ data: Data) -> OpaquePointer? {
+        // Try DER first
+        if let cert = readBIO(data, reader: { d2i_X509_bio($0, nil) }) {
             return cert
         }
         
-        // Fall back to PEM format
-        _ = BIO_ctrl(bio, 1, 0, nil) // BIO_CTRL_RESET = 1
-        return PEM_read_bio_X509(bio, nil, nil, nil)
+        // Fallback to PEM
+        return parse(data, boundaryKeyword: "CERTIFICATE",
+            pemReader: { PEM_read_bio_X509($0, nil, nil, nil) },
+            derReader: { d2i_X509_bio($0, nil) }
+        )
     }
 
     static func readPrivateKey(_ data: Data) -> OpaquePointer? {
-        let bio = BIO_new(BIO_s_mem())
-        defer { BIO_free(bio) }
-        _ = data.withUnsafeBytes { buf in
-            BIO_write(bio, buf.baseAddress, Int32(data.count))
-        }
-        
-        // Try DER format first
-        if let key = d2i_PrivateKey_bio(bio, nil) {
+        // Try DER first
+        if let key = readBIO(data, reader: { d2i_PrivateKey_bio($0, nil) }) {
             return key
         }
         
-        // Fall back to PEM format
-        _ = BIO_ctrl(bio, 1, 0, nil) // BIO_CTRL_RESET = 1
-        return PEM_read_bio_PrivateKey(bio, nil, nil, nil)
+        // Fallback to PEM
+        return parse(data, boundaryKeyword: "PRIVATE KEY",
+            pemReader: { PEM_read_bio_PrivateKey($0, nil, nil, nil) },
+            derReader: { d2i_PrivateKey_bio($0, nil) }
+        )
     }
 
     static func dataFromBIO(_ bio: OpaquePointer?) -> Data? {
@@ -178,14 +227,7 @@ public enum CertificatesManager {
 
         verboseLog("[AltSign] CertificatesManager.extractPKCS12 started. Data size: \(data.count) bytes, hasPassword: \(password != nil)")
 
-        let bio = BIO_new(BIO_s_mem())
-        defer { BIO_free(bio) }
-
-        _ = data.withUnsafeBytes { buf in
-            BIO_write(bio, buf.baseAddress, Int32(data.count))
-        }
-
-        guard let p12 = d2i_PKCS12_bio(bio, nil) else {
+        guard let p12 = readBIO(data, reader: { d2i_PKCS12_bio($0, nil) }) else {
             throw ALTCertificateError.invalidFormat
         }
         defer { PKCS12_free(p12) }
