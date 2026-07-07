@@ -204,13 +204,13 @@ fileprivate extension Data {
     // Read at offset a 32 bit UInt
     func readUInt32(at offset: Int) -> UInt32 {
         guard offset + 4 <= self.count else { return 0 }
-        return self.withUnsafeBytes { $0.load(fromByteOffset: offset, as: UInt32.self) }
+        return self.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: offset, as: UInt32.self) }
     }
     
-    // Read at offset a 32 bit UInt
+    // Read at offset a 64 bit UInt
     func readUInt64(at offset: Int) -> UInt64 {
         guard offset + 8 <= self.count else { return 0 }
-        return self.withUnsafeBytes { $0.load(fromByteOffset: offset, as: UInt64.self) }
+        return self.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: offset, as: UInt64.self) }
     }
     
     // Read at offset a 32 bit UInt and convert it to host type (bigEndian)
