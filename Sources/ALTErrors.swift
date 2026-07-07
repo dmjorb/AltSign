@@ -1,5 +1,5 @@
 //
-//  NSError+ALTErrors.swift
+//  ALTErrors.swift
 //  AltSign
 //
 

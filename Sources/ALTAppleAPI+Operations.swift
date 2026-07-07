@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftBridge
 
 public extension ALTAppleAPI {
     
@@ -28,9 +29,13 @@ public extension ALTAppleAPI {
     }
     
     func fetchTeams(for account: ALTAccount, session: ALTAppleAPISession, completionHandler: @escaping ([ALTTeam]?, Error?) -> Void) {
+        verboseLog("[AltSign] fetchTeams starting for account: \(account.appleID)")
         let url = URL(string: "listTeams.action", relativeTo: self.baseURL)!
         
         self.sendRequest(url: url, additionalParameters: nil, session: session, team: nil) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] fetchTeams request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -47,6 +52,7 @@ public extension ALTAppleAPI {
                 return list
             }, resultCodeHandler: nil, error: &error) as? [ALTTeam]
             
+            verboseLog("[AltSign] fetchTeams completed: \(teams?.map { "\($0.name) (\($0.identifier))" } ?? [])")
             if let teams, teams.isEmpty {
                 completionHandler(nil, NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.noTeams.rawValue, userInfo: nil))
             } else {
@@ -57,9 +63,13 @@ public extension ALTAppleAPI {
     
     /* Devices */
     func fetchDevices(for team: ALTTeam, types: ALTDeviceType, session: ALTAppleAPISession, completionHandler: @escaping ([ALTDevice]?, Error?) -> Void) {
+        verboseLog("[AltSign] fetchDevices starting for team: \(team.name), types: \(types)")
         let url = URL(string: "ios/listDevices.action", relativeTo: self.baseURL)!
         
         self.sendRequest(url: url, additionalParameters: nil, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] fetchDevices request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -79,11 +89,13 @@ public extension ALTAppleAPI {
                 return list
             }, resultCodeHandler: nil, error: &error) as? [ALTDevice]
             
+            verboseLog("[AltSign] fetchDevices completed: \(devices?.map { "\($0.name) (\($0.identifier))" } ?? [])")
             completionHandler(devices, error)
         }
     }
     
     func registerDevice(name: String, identifier: String, type: ALTDeviceType, team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (ALTDevice?, Error?) -> Void) {
+        verboseLog("[AltSign] registerDevice starting with name: \(name), identifier: \(identifier), type: \(type)")
         let url = URL(string: "ios/addDevice.action", relativeTo: self.baseURL)!
         
         var parameters = [
@@ -99,6 +111,9 @@ public extension ALTAppleAPI {
         }
         
         self.sendRequest(url: url, additionalParameters: parameters, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] registerDevice request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -111,24 +126,29 @@ public extension ALTAppleAPI {
             }, resultCodeHandler: { resultCode in
                 if resultCode == 35 {
                     if let userString = (responseDictionary["userString"] as? String)?.lowercased(), userString.contains("already exists") {
-                        return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.deviceAlreadyRegistered.rawValue, userInfo: nil)
+                        return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.deviceAlreadyRegistered.rawValue, userInfo: nil) as Error
                     } else {
-                        return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidDeviceID.rawValue, userInfo: nil)
+                        return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidDeviceID.rawValue, userInfo: nil) as Error
                     }
                 }
                 return nil
             }, error: &error) as? ALTDevice
             
+            verboseLog("[AltSign] registerDevice completed: \(device?.name ?? "nil") (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(device, error)
         }
     }
     
     /* Certificates */
     func fetchCertificates(for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping ([ALTCertificate]?, Error?) -> Void) {
+        verboseLog("[AltSign] fetchCertificates starting for team: \(team.name)")
         let url = URL(string: "certificates", relativeTo: self.servicesBaseURL)!
         let request = URLRequest(url: url)
         
         self.sendServicesRequest(request, additionalParameters: ["filter[certificateType]": "IOS_DEVELOPMENT,DEVELOPMENT"], session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] fetchCertificates request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -145,11 +165,13 @@ public extension ALTAppleAPI {
                 return list
             }, resultCodeHandler: nil, error: &error) as? [ALTCertificate]
             
+            verboseLog("[AltSign] fetchCertificates completed: \(certificates?.map { "\($0.name ?? "nil") (\($0.identifier ?? "nil"))" } ?? [])")
             completionHandler(certificates, error)
         }
     }
     
     func addCertificate(machineName: String, to team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (ALTCertificate?, Error?) -> Void) {
+        verboseLog("[AltSign] addCertificate starting with machineName: \(machineName)")
         guard let request = ALTCertificateRequest.makeRequest() else {
             completionHandler(nil, NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidCertificateRequest.rawValue, userInfo: nil))
             return
@@ -168,6 +190,9 @@ public extension ALTAppleAPI {
         ]
         
         self.sendRequest(url: url, additionalParameters: parameters, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] addCertificate request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -181,24 +206,29 @@ public extension ALTAppleAPI {
                 return cert
             }, resultCodeHandler: { resultCode in
                 if resultCode == 3250 {
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidCertificateRequest.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidCertificateRequest.rawValue, userInfo: nil) as Error
                 }
                 if resultCode == 7460 {
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.tooManyCertificates.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.tooManyCertificates.rawValue, userInfo: nil) as Error
                 }
                 return nil
             }, error: &error) as? ALTCertificate
             
+            verboseLog("[AltSign] addCertificate completed: \(certificate?.name ?? "nil") (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(certificate, error)
         }
     }
     
     func revoke(_ certificate: ALTCertificate, for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (Bool, Error?) -> Void) {
+        verboseLog("[AltSign] revoke certificate starting for: \(certificate.name ?? "nil") (ID: \(certificate.identifier ?? "nil"))")
         let url = URL(string: "certificates/\(certificate.identifier ?? "nil")", relativeTo: self.servicesBaseURL)!
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         
         self.sendServicesRequest(request, additionalParameters: nil, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] revoke certificate request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(false, requestError)
                 return
@@ -209,20 +239,25 @@ public extension ALTAppleAPI {
                 return responseDictionary
             }, resultCodeHandler: { resultCode in
                 if resultCode == 7252 {
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.certificateDoesNotExist.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.certificateDoesNotExist.rawValue, userInfo: nil) as Error
                 }
                 return nil
             }, error: &error)
             
+            verboseLog("[AltSign] revoke completed with success: \(result != nil) (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(result != nil, error)
         }
     }
     
     /* App IDs */
     func fetchAppIDs(for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping ([ALTAppID]?, Error?) -> Void) {
+        verboseLog("[AltSign] fetchAppIDs starting for team: \(team.name)")
         let url = URL(string: "ios/listAppIds.action", relativeTo: self.baseURL)!
         
         self.sendRequest(url: url, additionalParameters: nil, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] fetchAppIDs request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -239,11 +274,13 @@ public extension ALTAppleAPI {
                 return list
             }, resultCodeHandler: nil, error: &error) as? [ALTAppID]
             
+            verboseLog("[AltSign] fetchAppIDs completed: \(appIDs?.map { $0.bundleIdentifier } ?? [])")
             completionHandler(appIDs, error)
         }
     }
     
     func addAppID(withName name: String, bundleIdentifier: String, team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (ALTAppID?, Error?) -> Void) {
+        verboseLog("[AltSign] addAppID starting with name: \(name), bundleIdentifier: \(bundleIdentifier)")
         let url = URL(string: "ios/addAppId.action", relativeTo: self.baseURL)!
         
         var allowedCharacters = CharacterSet.alphanumerics
@@ -261,6 +298,9 @@ public extension ALTAppleAPI {
         ]
         
         self.sendRequest(url: url, additionalParameters: parameters, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] addAppID request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -273,23 +313,25 @@ public extension ALTAppleAPI {
             }, resultCodeHandler: { resultCode in
                 switch resultCode {
                 case 35:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidAppIDName.rawValue, userInfo: [(ALTAppNameErrorKey as String): sanitizedName])
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidAppIDName.rawValue, userInfo: [(ALTAppNameErrorKey as String): sanitizedName]) as Error
                 case 9120:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.maximumAppIDLimitReached.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.maximumAppIDLimitReached.rawValue, userInfo: nil) as Error
                 case 9401:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.bundleIdentifierUnavailable.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.bundleIdentifierUnavailable.rawValue, userInfo: nil) as Error
                 case 9412:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidBundleIdentifier.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidBundleIdentifier.rawValue, userInfo: nil) as Error
                 default:
                     return nil
                 }
             }, error: &error) as? ALTAppID
             
+            verboseLog("[AltSign] addAppID completed: \(appID?.bundleIdentifier ?? "nil") (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(appID, error)
         }
     }
     
     func update(_ appID: ALTAppID, team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (ALTAppID?, Error?) -> Void) {
+        verboseLog("[AltSign] update starting for App ID: \(appID.bundleIdentifier)")
         let url = URL(string: "ios/updateAppId.action", relativeTo: self.baseURL)!
         
         var parameters: [String: Any] = ["appIdId": appID.identifier]
@@ -309,6 +351,9 @@ public extension ALTAppleAPI {
         parameters["entitlements"] = entitlements
         
         self.sendRequest(url: url, plistParameters: parameters, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] update App ID request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -321,24 +366,29 @@ public extension ALTAppleAPI {
             }, resultCodeHandler: { resultCode in
                 switch resultCode {
                 case 35:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidAppIDName.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidAppIDName.rawValue, userInfo: nil) as Error
                 case 9100:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appIDDoesNotExist.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appIDDoesNotExist.rawValue, userInfo: nil) as Error
                 case 9412:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidBundleIdentifier.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidBundleIdentifier.rawValue, userInfo: nil) as Error
                 default:
                     return nil
                 }
             }, error: &error) as? ALTAppID
             
+            verboseLog("[AltSign] update App ID completed: \(updatedAppID?.bundleIdentifier ?? "nil") (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(updatedAppID, error)
         }
     }
     
     func deleteAppID(_ appID: ALTAppID, for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (Bool, Error?) -> Void) {
+        verboseLog("[AltSign] deleteAppID starting for App ID: \(appID.bundleIdentifier)")
         let url = URL(string: "ios/deleteAppId.action", relativeTo: self.baseURL)!
         
         self.sendRequest(url: url, additionalParameters: ["appIdId": appID.identifier], session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] deleteAppID request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(false, requestError)
                 return
@@ -350,20 +400,25 @@ public extension ALTAppleAPI {
                 return result == 0 ? result as Any : nil
             }, resultCodeHandler: { resultCode in
                 if resultCode == 9100 {
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appIDDoesNotExist.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appIDDoesNotExist.rawValue, userInfo: nil) as Error
                 }
                 return nil
             }, error: &error)
             
+            verboseLog("[AltSign] deleteAppID completed with success: \(value != nil) (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(value != nil, error)
         }
     }
     
     /* App Groups */
     func fetchAppGroups(for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping ([ALTAppGroup]?, Error?) -> Void) {
+        verboseLog("[AltSign] fetchAppGroups starting for team: \(team.name)")
         let url = URL(string: "ios/listApplicationGroups.action", relativeTo: self.baseURL)!
         
         self.sendRequest(url: url, additionalParameters: nil, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] fetchAppGroups request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -380,14 +435,19 @@ public extension ALTAppleAPI {
                 return list
             }, resultCodeHandler: nil, error: &error) as? [ALTAppGroup]
             
+            verboseLog("[AltSign] fetchAppGroups completed: \(groups?.map { $0.groupIdentifier } ?? [])")
             completionHandler(groups, error)
         }
     }
     
     func addAppGroup(withName name: String, groupIdentifier: String, team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (ALTAppGroup?, Error?) -> Void) {
+        verboseLog("[AltSign] addAppGroup starting with name: \(name), groupIdentifier: \(groupIdentifier)")
         let url = URL(string: "ios/addApplicationGroup.action", relativeTo: self.baseURL)!
         
         self.sendRequest(url: url, additionalParameters: ["identifier": groupIdentifier, "name": name], session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] addAppGroup request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -399,16 +459,18 @@ public extension ALTAppleAPI {
                 return ALTAppGroup(responseDictionary: dict)
             }, resultCodeHandler: { resultCode in
                 if resultCode == 35 {
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidAppGroup.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidAppGroup.rawValue, userInfo: nil) as Error
                 }
                 return nil
             }, error: &error) as? ALTAppGroup
             
+            verboseLog("[AltSign] addAppGroup completed: \(group?.groupIdentifier ?? "nil") (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(group, error)
         }
     }
     
     func assign(_ appID: ALTAppID, to groups: [ALTAppGroup], team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (Bool, Error?) -> Void) {
+        verboseLog("[AltSign] assign App ID: \(appID.bundleIdentifier) to groups: \(groups.map { $0.groupIdentifier })")
         let url = URL(string: "ios/assignApplicationGroupToAppId.action", relativeTo: self.baseURL)!
         
         let groupIDs = groups.map { $0.identifier }
@@ -418,6 +480,9 @@ public extension ALTAppleAPI {
         ]
         
         self.sendRequest(url: url, plistParameters: parameters, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] assign request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(false, requestError)
                 return
@@ -430,20 +495,22 @@ public extension ALTAppleAPI {
             }, resultCodeHandler: { resultCode in
                 switch resultCode {
                 case 9115:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appIDDoesNotExist.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appIDDoesNotExist.rawValue, userInfo: nil) as Error
                 case 35:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appGroupDoesNotExist.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appGroupDoesNotExist.rawValue, userInfo: nil) as Error
                 default:
                     return nil
                 }
             }, error: &error)
             
+            verboseLog("[AltSign] assign completed with success: \(value != nil) (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(value != nil, error)
         }
     }
     
     /* Provisioning Profiles */
     func fetchProvisioningProfile(for appID: ALTAppID, deviceType: ALTDeviceType, team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (ALTProvisioningProfile?, Error?) -> Void) {
+        verboseLog("[AltSign] fetchProvisioningProfile starting for App ID: \(appID.bundleIdentifier), deviceType: \(deviceType)")
         let url = URL(string: "ios/downloadTeamProvisioningProfile.action", relativeTo: self.baseURL)!
         
         var parameters = ["appIdId": appID.identifier]
@@ -455,6 +522,9 @@ public extension ALTAppleAPI {
         }
         
         self.sendRequest(url: url, additionalParameters: parameters, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] fetchProvisioningProfile request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(nil, requestError)
                 return
@@ -466,16 +536,18 @@ public extension ALTAppleAPI {
                 return ALTProvisioningProfile(responseDictionary: dict)
             }, resultCodeHandler: { resultCode in
                 if resultCode == 8201 {
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appIDDoesNotExist.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.appIDDoesNotExist.rawValue, userInfo: nil) as Error
                 }
                 return nil
             }, error: &error) as? ALTProvisioningProfile
             
+            verboseLog("[AltSign] fetchProvisioningProfile completed: \(profile?.name ?? "nil") (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(profile, error)
         }
     }
     
     func delete(_ provisioningProfile: ALTProvisioningProfile, for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (Bool, Error?) -> Void) {
+        verboseLog("[AltSign] delete provisioning profile starting: \(provisioningProfile.name) (ID: \(provisioningProfile.identifier ?? "nil"))")
         let url = URL(string: "ios/deleteProvisioningProfile.action", relativeTo: self.baseURL)!
         
         let parameters = [
@@ -484,6 +556,9 @@ public extension ALTAppleAPI {
         ]
         
         self.sendRequest(url: url, additionalParameters: parameters, session: session, team: team) { responseDictionary, requestError in
+            if let error = requestError {
+                verboseLog("[AltSign] delete provisioning profile request failed with error: \(error)")
+            }
             guard let responseDictionary else {
                 completionHandler(false, requestError)
                 return
@@ -496,14 +571,15 @@ public extension ALTAppleAPI {
             }, resultCodeHandler: { resultCode in
                 switch resultCode {
                 case 35:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidProvisioningProfileIdentifier.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidProvisioningProfileIdentifier.rawValue, userInfo: nil) as Error
                 case 8101:
-                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.provisioningProfileDoesNotExist.rawValue, userInfo: nil)
+                    return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.provisioningProfileDoesNotExist.rawValue, userInfo: nil) as Error
                 default:
                     return nil
                 }
             }, error: &error)
             
+            verboseLog("[AltSign] delete provisioning profile completed with success: \(value != nil) (error: \(error?.localizedDescription ?? "nil"))")
             completionHandler(value != nil, error)
         }
     }
@@ -537,6 +613,7 @@ public extension ALTAppleAPI {
                 options: 0
             )
         } catch {
+            verboseLog("[AltSign] sendRequest(plist) serialization failed: \(error)")
             completionHandler(
                 nil,
                 NSError(
@@ -551,6 +628,9 @@ public extension ALTAppleAPI {
         let url = URL(
             string: "\(requestURL.absoluteString)?clientId=\(ALTClientID)"
         )!
+
+        verboseLog("[AltSign] sendRequest(plist) to: \(url.absoluteString)")
+        verboseLog("[AltSign] sendRequest(plist) parameters: \(parameters)")
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -584,6 +664,9 @@ public extension ALTAppleAPI {
         }
 
         session.dataTask(with: request) { data, _, error in
+            if let error {
+                verboseLog("[AltSign] sendRequest(plist) failed with error: \(error)")
+            }
             guard let data else {
                 completionHandler(nil, error)
                 return
@@ -595,8 +678,10 @@ public extension ALTAppleAPI {
                     options: [],
                     format: nil
                 )
+                verboseLog("[AltSign] sendRequest(plist) response: \(plist as? [String: Any] ?? [:])")
                 completionHandler(plist as? [String: Any], nil)
             } catch {
+                verboseLog("[AltSign] sendRequest(plist) failed to parse response plist. Raw: \(String(data: data, encoding: .utf8) ?? "unable to decode")")
                 completionHandler(
                     nil,
                     NSError(

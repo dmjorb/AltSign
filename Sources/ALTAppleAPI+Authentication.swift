@@ -246,34 +246,50 @@ private extension ALTAppleAPI {
                                            anisetteData: ALTAnisetteData,
                                            verificationHandler: @escaping (@escaping (String?) -> Void) -> Void,
                                            completionHandler: @escaping (Result<Void, Error>) -> Void) {
+        verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode starting for dsid: \(dsid)")
         let requestURL = URL(string: "https://gsa.apple.com/auth/verify/trusteddevice")!
         let verifyURL = URL(string: "https://gsa.apple.com/grandslam/GsService2/validate")!
 
         let request = makeTwoFactorCodeRequest(url: requestURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData)
 
         let requestCodeTask = session.dataTask(with: request) { data, _, error in
+            if let error {
+                verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode request code task failed: \(error)")
+            } else {
+                verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode request code task succeeded")
+            }
             do {
                 guard error == nil else { throw error! }
 
                 func responseHandler(verificationCode: String?) {
+                    verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode received code from user. Has code: \(verificationCode != nil)")
                     do {
                         guard let verificationCode = verificationCode else { throw ALTAppleAPIError.requiresTwoFactorAuthentication }
 
                         var request = self.makeTwoFactorCodeRequest(url: verifyURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData)
                         request.allHTTPHeaderFields?["security-code"] = verificationCode
 
+                        verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode verifying code...")
                         let verifyCodeTask = self.session.dataTask(with: request) { (data, response, error) in
                             do
                             {
+                                if let error {
+                                    verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode verification failed with error: \(error)")
+                                }
                                 guard let data = data else { throw error ?? ALTAppleAPIError.unknown }
 
                                 guard let responseDictionary = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+                                    verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode verify response plist is invalid")
                                     throw URLError(.badServerResponse)
                                 }
 
                                 let errorCode = responseDictionary["ec"] as? Int ?? 0
-                                guard errorCode != 0 else { return completionHandler(.success(())) }
+                                guard errorCode != 0 else {
+                                    verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode code verified successfully!")
+                                    return completionHandler(.success(()))
+                                }
 
+                                verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode verification error code: \(errorCode)")
                                 switch errorCode {
                                 case -21669: throw ALTAppleAPIError.incorrectVerificationCode
                                 default:
@@ -307,6 +323,7 @@ private extension ALTAppleAPI {
                                  anisetteData: ALTAnisetteData,
                                  verificationHandler: @escaping (@escaping (String?) -> Void) -> Void,
                                  completionHandler: @escaping (Result<Void, Error>) -> Void) {
+        verboseLog("[AltSign] requestSMSTwoFactorCode starting for dsid: \(dsid)")
         let requestURL = URL(string: "https://gsa.apple.com/auth/verify/phone/put?mode=sms")!
         let verifyURL = URL(string: "https://gsa.apple.com/auth/verify/phone/securitycode?referrer=/auth/verify/phone/put")!
 
@@ -323,15 +340,22 @@ private extension ALTAppleAPI {
             let bodyData = try PropertyListSerialization.data(fromPropertyList: bodyXML, format: .xml, options: 0)
             request.httpBody = bodyData
         } catch {
+            verboseLog("[AltSign] requestSMSTwoFactorCode serialization failed: \(error)")
             completionHandler(.failure(error))
             return
         }
 
         let requestCodeTask = session.dataTask(with: request) { _, response, error in
+            if let error {
+                verboseLog("[AltSign] requestSMSTwoFactorCode request code task failed: \(error)")
+            } else {
+                verboseLog("[AltSign] requestSMSTwoFactorCode request code task succeeded")
+            }
             do {
                 guard error == nil else { throw error! }
 
                 func responseHandler(verificationCode: String?) {
+                    verboseLog("[AltSign] requestSMSTwoFactorCode received code from user. Has code: \(verificationCode != nil)")
                     do {
                         guard let verificationCode = verificationCode else { throw ALTAppleAPIError.requiresTwoFactorAuthentication }
 
@@ -349,15 +373,23 @@ private extension ALTAppleAPI {
                         let bodyData = try PropertyListSerialization.data(fromPropertyList: bodyXML, format: .xml, options: 0)
                         request.httpBody = bodyData
 
+                        verboseLog("[AltSign] requestSMSTwoFactorCode verifying code...")
                         let verifyCodeTask = self.session.dataTask(with: request) { _, response, error in
                             do {
+                                if let error {
+                                    verboseLog("[AltSign] requestSMSTwoFactorCode verification failed: \(error)")
+                                }
                                 guard error == nil else { throw error! }
 
                                 guard let httpResponse = response as? HTTPURLResponse,
                                       httpResponse.statusCode == 200,
                                       httpResponse.allHeaderFields.keys.contains("X-Apple-PE-Token") // PE token is included in headers if we sent correct verification code.
-                                else { throw ALTAppleAPIError.incorrectVerificationCode }
+                                else {
+                                    verboseLog("[AltSign] requestSMSTwoFactorCode verification failed (invalid status code or missing PE token)")
+                                    throw ALTAppleAPIError.incorrectVerificationCode
+                                }
 
+                                verboseLog("[AltSign] requestSMSTwoFactorCode code verified successfully!")
                                 completionHandler(.success(()))
                             } catch {
                                 completionHandler(.failure(error))
@@ -383,6 +415,7 @@ private extension ALTAppleAPI {
         session: ALTAppleAPISession,
         completionHandler: @escaping (Result<ALTAccount, Error>) -> Void
     ) {
+        verboseLog("[AltSign] fetchAccount starting for dsid: \(session.dsid)")
         let url = URL(string: "viewDeveloper.action", relativeTo: self.baseURL)!
 
         self.sendRequest(url: url,
@@ -390,6 +423,9 @@ private extension ALTAppleAPI {
                          session: session,
                          team: nil) { responseDictionary, requestError in
             do {
+                if let requestError {
+                    verboseLog("[AltSign] fetchAccount request failed: \(requestError)")
+                }
 
                 guard let responseDictionary = responseDictionary else {
                     if let requestError { throw requestError }
@@ -409,9 +445,11 @@ private extension ALTAppleAPI {
                     resultCodeHandler: nil,
                     error: &processError
                 ) as? ALTAccount else {
+                    verboseLog("[AltSign] fetchAccount parsing response failed: \(processError ?? ALTAppleAPIError.unknown)")
                     throw processError ?? ALTAppleAPIError.unknown
                 }
 
+                verboseLog("[AltSign] fetchAccount succeeded: \(account.name) (Apple ID: \(account.appleID))")
                 completionHandler(.success(account))
 
             } catch {

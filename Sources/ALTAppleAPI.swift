@@ -86,6 +86,7 @@ extension ALTAppleAPI {
                 domain: NSURLErrorDomain,
                 code: NSURLErrorBadServerResponse
             )
+            debugLog("[AltSign] processResponse error: missing resultCode (returning badServerResponse)")
             return nil
         }
 
@@ -114,6 +115,7 @@ extension ALTAppleAPI {
         }
 
         error = tempError
+        debugLog("[AltSign] processResponse error: \(tempError?.localizedDescription ?? "unknown error") (code: \(resultCode))")
         return nil
     }
 }

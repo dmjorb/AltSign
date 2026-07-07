@@ -47,7 +47,13 @@ extension GSAContext {
     func start() -> Data? {
         guard self.publicKey == nil else { return nil }
 
+        verboseLog("[AltSign] GSAContext.start: generating client public key A")
         self.publicKey = self.makeAKey()
+        if let key = self.publicKey {
+            verboseLog("[AltSign] GSAContext.start succeeded. Public key length: \(key.count) bytes")
+        } else {
+            verboseLog("[AltSign] GSAContext.start failed: makeAKey returned nil")
+        }
         return self.publicKey
     }
 
@@ -56,15 +62,22 @@ extension GSAContext {
 
         guard let salt = self.salt,
               let serverPublicKey = self.serverPublicKey
-        else { return nil }
+        else {
+            verboseLog("[AltSign] GSAContext.makeVerificationMessage failed: salt or serverPublicKey is nil")
+            return nil
+        }
 
+        verboseLog("[AltSign] GSAContext.makeVerificationMessage: generating verification message. Salt size: \(salt.count) bytes, ServerPubKey size: \(serverPublicKey.count) bytes, iterations: \(iterations), isHex: \(isHexadecimal)")
         guard let derivedPasswordKey = self.makeX(
             password: self.password,
             salt: salt,
             iterations: iterations,
             isHexadecimal: isHexadecimal
         )
-        else { return nil }
+        else {
+            verboseLog("[AltSign] GSAContext.makeVerificationMessage failed: derivedPasswordKey generation failed")
+            return nil
+        }
 
         self.derivedPasswordKey = derivedPasswordKey
 
@@ -75,16 +88,25 @@ extension GSAContext {
             serverPublicKey: serverPublicKey
         )
 
+        if let msg = self.verificationMessage {
+            verboseLog("[AltSign] GSAContext.makeVerificationMessage succeeded. Verification msg M1 size: \(msg.count) bytes")
+        } else {
+            verboseLog("[AltSign] GSAContext.makeVerificationMessage failed: makeM1 returned nil")
+        }
         return self.verificationMessage
     }
 
     func verifyServerVerificationMessage(_ serverVerificationMessage: Data) -> Bool {
         guard !serverVerificationMessage.isEmpty else { return false }
 
+        verboseLog("[AltSign] GSAContext.verifyServerVerificationMessage: verifying server proof of size \(serverVerificationMessage.count) bytes")
         let isValid = srp?.verifyServerProof(serverVerificationMessage) ?? false
 
         if isValid {
             self.sessionKey = srp?.sessionKey()
+            verboseLog("[AltSign] GSAContext.verifyServerVerificationMessage: verification succeeded!")
+        } else {
+            verboseLog("[AltSign] GSAContext.verifyServerVerificationMessage: verification failed!")
         }
 
         return isValid
@@ -93,12 +115,22 @@ extension GSAContext {
     func makeChecksum(appName: String) -> Data? {
         guard let sessionKey = self.sessionKey,
               let dsid = self.dsid
-        else { return nil }
+        else {
+            verboseLog("[AltSign] GSAContext.makeChecksum failed: sessionKey or dsid is nil")
+            return nil
+        }
 
-        return CoreCryptoBridge.hmacSHA256(
+        verboseLog("[AltSign] GSAContext.makeChecksum starting for appName: \(appName), dsid: \(dsid)")
+        let checksum = CoreCryptoBridge.hmacSHA256(
             key: sessionKey,
             strings: ["apptokens", dsid, appName]
         )
+        if let checksum = checksum {
+            verboseLog("[AltSign] GSAContext.makeChecksum succeeded. Size: \(checksum.count) bytes")
+        } else {
+            verboseLog("[AltSign] GSAContext.makeChecksum failed: hmacSHA256 returned nil")
+        }
+        return checksum
     }
 }
 
