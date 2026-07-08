@@ -128,6 +128,8 @@ public enum CertificatesManager {
         return Data(bytes: rawPtr, count: len)
     }
 
+
+
     // MARK: - Public API
 
     public static func generateCSR(
@@ -228,7 +230,7 @@ public enum CertificatesManager {
         verboseLog("[AltSign] CertificatesManager.extractPKCS12 started. Data size: \(data.count) bytes, hasPassword: \(password != nil)")
 
         guard let p12 = readBIO(data, reader: { d2i_PKCS12_bio($0, nil) }) else {
-            throw ALTCertificateError.invalidFormat
+            throw ALTCertificateError.invalidFormat(cause: getOpenSSLError())
         }
         defer { PKCS12_free(p12) }
 
@@ -258,7 +260,7 @@ public enum CertificatesManager {
         }
 
         guard parsed, let cert, let key else {
-            throw ALTCertificateError.decryptionFailed
+            throw ALTCertificateError.decryptionFailed(cause: getOpenSSLError())
         }
         defer {
             EVP_PKEY_free(key)
@@ -277,7 +279,7 @@ public enum CertificatesManager {
 
         guard let certData = dataFromBIO(certBIO),
               let keyData = dataFromBIO(keyBIO) else {
-            throw ALTCertificateError.memoryAllocationFailed
+            throw ALTCertificateError.memoryAllocationFailed(cause: getOpenSSLError())
         }
 
         verboseLog("[AltSign] CertificatesManager.extractPKCS12 succeeded. Extracted cert size: \(certData.count) bytes, key size: \(keyData.count) bytes")
@@ -323,14 +325,15 @@ public enum CertificatesManager {
         cert: Data,
         key: Data?,
         password: String
-    ) -> Data? {
+    ) throws -> Data {
 
         verboseLog("[AltSign] CertificatesManager.createPKCS12 started. Cert size: \(cert.count) bytes, hasKey: \(key != nil)")
 
         guard let certX509 = readCert(cert) else {
             let firstBytes = cert.prefix(4).map { String(format: "%02x", $0) }.joined()
-            debugLog("[AltSign] CertificatesManager.createPKCS12 failed: readCert returned nil (cert data size: \(cert.count) bytes, first bytes: \(firstBytes))")
-            return nil
+            let cause = getOpenSSLError()
+            debugLog("[AltSign] CertificatesManager.createPKCS12 failed: readCert returned nil (cert data size: \(cert.count) bytes, first bytes: \(firstBytes)) (cause: \(cause))")
+            throw Error.operationFailed("failed to parse certificate during PKCS12 generation\ncause: \(cause)")
         }
         defer { X509_free(certX509) }
 
@@ -338,15 +341,17 @@ public enum CertificatesManager {
         if let keyData = key {
             keyPkey = readPrivateKey(keyData)
             if keyPkey == nil {
-                debugLog("[AltSign] CertificatesManager.createPKCS12 failed: readPrivateKey returned nil (key data size: \(keyData.count) bytes)")
-                return nil
+                let cause = getOpenSSLError()
+                debugLog("[AltSign] CertificatesManager.createPKCS12 failed: readPrivateKey returned nil (key data size: \(keyData.count) bytes) (cause: \(cause))")
+                throw Error.operationFailed("failed to parse private key during PKCS12 generation\ncause: \(cause)")
             }
         }
         defer { if let keyPkey { EVP_PKEY_free(keyPkey) } }
 
         guard let p12 = PKCS12_create(password, "", keyPkey, certX509, nil, 0, 0, 0, 0, 0) else {
-            debugLog("[AltSign] CertificatesManager.createPKCS12 failed: PKCS12_create returned nil")
-            return nil
+            let cause = getOpenSSLError()
+            debugLog("[AltSign] CertificatesManager.createPKCS12 failed: PKCS12_create returned nil (cause: \(cause))")
+            throw Error.operationFailed("failed to create PKCS12 container\ncause: \(cause)")
         }
         defer { PKCS12_free(p12) }
 
@@ -356,11 +361,20 @@ public enum CertificatesManager {
         i2d_PKCS12_bio(bio, p12)
 
         guard let result = dataFromBIO(bio) else {
-            debugLog("[AltSign] CertificatesManager.createPKCS12 failed: dataFromBIO returned nil")
-            return nil
+            let cause = getOpenSSLError()
+            debugLog("[AltSign] CertificatesManager.createPKCS12 failed: dataFromBIO returned nil (cause: \(cause))")
+            throw Error.operationFailed("failed to read PKCS12 data from BIO\ncause: \(cause)")
         }
 
         verboseLog("[AltSign] CertificatesManager.createPKCS12 succeeded. Output size: \(result.count) bytes")
         return result
     }
+}
+
+internal func getOpenSSLError() -> String {
+    let errCode = ERR_get_error()
+    guard errCode != 0 else { return "unknown error" }
+    var buf = [CChar](repeating: 0, count: 256)
+    ERR_error_string_n(errCode, &buf, buf.count)
+    return String(cString: buf)
 }

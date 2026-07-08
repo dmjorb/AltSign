@@ -281,21 +281,28 @@ public enum LdidBridge {
             return CertificatesManager.readCert(data)
         }
         
-        if let rootCert = readCertFromPEM(AppleRootCertificateData) {
-            OPENSSL_sk_push(certificates, UnsafeRawPointer(rootCert))
+
+
+        guard let rootCert = readCertFromPEM(AppleRootCertificateData) else {
+            let openSSLErr = getOpenSSLError()
+            throw Error.operationFailed("failed to parse Apple Root CA certificate during chain of trust packaging\ncause: \(openSSLErr)")
         }
+        OPENSSL_sk_push(certificates, UnsafeRawPointer(rootCert))
         
         let issuerHash = X509_issuer_name_hash(cert)
         let wwdrData = (issuerHash == 0x817d2f7a)
             ? LegacyAppleWWDRCertificateData
             : AppleWWDRCertificateData
             
-        if let wwdrCert = readCertFromPEM(wwdrData) {
-            OPENSSL_sk_push(certificates, UnsafeRawPointer(wwdrCert))
+        guard let wwdrCert = readCertFromPEM(wwdrData) else {
+            let openSSLErr = getOpenSSLError()
+            throw Error.operationFailed("failed to parse Apple WWDR certificate during chain of trust packaging\ncause: \(openSSLErr)")
         }
+        OPENSSL_sk_push(certificates, UnsafeRawPointer(wwdrCert))
         
         guard let outputP12 = PKCS12_create("", "", key, cert, certificates, 0, 0, 0, 0, 0) else {
-            throw Error.operationFailed("failed to package certificate chain")
+            let openSSLErr = getOpenSSLError()
+            throw Error.operationFailed("failed to package certificate chain during chain of trust packaging\ncause: \(openSSLErr)")
         }
         defer { PKCS12_free(outputP12) }
         
@@ -305,7 +312,8 @@ public enum LdidBridge {
         i2d_PKCS12_bio(outputBio, outputP12)
         
         guard let outputData = CertificatesManager.dataFromBIO(outputBio) else {
-            throw Error.operationFailed("failed to retrieve packaged chain data")
+            let openSSLErr = getOpenSSLError()
+            throw Error.operationFailed("failed to retrieve packaged chain data during chain of trust packaging\ncause: \(openSSLErr)")
         }
         
         return outputData
