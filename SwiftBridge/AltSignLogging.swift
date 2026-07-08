@@ -15,13 +15,13 @@ public enum AltSignLogging {
 }
 
 @inline(__always)
-public func debugLog(_ text: String) {
-    print(text)
+public func debugLog(_ text: @autoclosure () -> String) {
+    print(text())
 }
 
 @inline(__always)
-public func verboseLog(_ text: String) {
+public func verboseLog(_ text: @autoclosure () -> String) {
     if AltSignLogging.isLoggingEnabled {
-        print(text)
+        print(text())
     }
 }
