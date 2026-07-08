@@ -215,7 +215,7 @@ extension ALTAppleAPI {
                     options: [],
                     format: nil
                 )
-                verboseLog("[AltSign] sendRequest response: \(plist)")
+                verboseLog("[AltSign] sendRequest response: \(prettyJSONString(from: plist))")
                 completionHandler(plist as? [String: Any], nil)
             } catch {
                 verboseLog("[AltSign] sendRequest failed to parse response plist. Raw: \(String(data: data, encoding: .utf8) ?? "unable to decode")")
@@ -328,7 +328,7 @@ extension ALTAppleAPI {
 
             do {
                 let json = try JSONSerialization.jsonObject(with: data)
-                verboseLog("[AltSign] sendServicesRequest response: \(json)")
+                verboseLog("[AltSign] sendServicesRequest response: \(prettyJSONString(from: json))")
                 completionHandler(json as? [String: Any], nil)
             } catch {
                 verboseLog("[AltSign] sendServicesRequest failed to parse response JSON. Raw: \(String(data: data, encoding: .utf8) ?? "unable to decode")")
@@ -342,5 +342,39 @@ extension ALTAppleAPI {
                 )
             }
         }.resume()
+    }
+}
+
+// MARK: - JSON Formatting Helpers
+
+fileprivate func prettyJSONString(from object: Any) -> String {
+    let sanitized = sanitizeForJSON(object)
+    if JSONSerialization.isValidJSONObject(sanitized) {
+        do {
+            let data = try JSONSerialization.data(withJSONObject: sanitized, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+            if let string = String(data: data, encoding: .utf8) {
+                return string
+            }
+        } catch {}
+    }
+    return "\(object)"
+}
+
+fileprivate func sanitizeForJSON(_ object: Any) -> Any {
+    if let dict = object as? [String: Any] {
+        return dict.mapValues { sanitizeForJSON($0) }
+    } else if let array = object as? [Any] {
+        return array.map { sanitizeForJSON($0) }
+    } else if let date = object as? Date {
+        let formatter = ISO8601DateFormatter()
+        return formatter.string(from: date)
+    } else if let data = object as? Data {
+        return data.base64EncodedString()
+    } else if let number = object as? NSNumber {
+        return number
+    } else if let string = object as? String {
+        return string
+    } else {
+        return "\(object)"
     }
 }
