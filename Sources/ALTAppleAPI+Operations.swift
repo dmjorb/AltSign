@@ -546,7 +546,7 @@ public extension ALTAppleAPI {
         }
     }
     
-    func delete(_ provisioningProfile: ALTProvisioningProfile, for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (Bool, Error?) -> Void) {
+    func deleteProvisioningProfile(_ provisioningProfile: ALTProvisioningProfile, for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (Bool, Error?) -> Void) {
         verboseLog("[AltSign] delete provisioning profile starting: \(provisioningProfile.name) (ID: \(provisioningProfile.identifier ?? "nil"))")
         let url = URL(string: "ios/deleteProvisioningProfile.action", relativeTo: self.baseURL)!
         
@@ -708,5 +708,105 @@ public extension ALTAppleAPI {
             team: team,
             completionHandler: completionHandler
         )
+    }
+}
+
+// MARK: - Async/Await Wrappers
+
+extension ALTAppleAPI {
+    public func fetchProvisioningProfile(for appID: ALTAppID, deviceType: ALTDeviceType, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTProvisioningProfile {
+        try await withCheckedThrowingContinuation { continuation in
+            self.fetchProvisioningProfile(for: appID, deviceType: deviceType, team: team, session: session) { (profile, error) in
+                if let profile = profile {
+                    continuation.resume(returning: profile)
+                } else {
+                    continuation.resume(throwing: error ?? ALTAppleAPIError.unknown())
+                }
+            }
+        }
+    }
+    
+    public func deleteProvisioningProfile(_ profile: ALTProvisioningProfile, for team: ALTTeam, session: ALTAppleAPISession) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            self.deleteProvisioningProfile(profile, for: team, session: session) { (success, error) in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: error ?? ALTAppleAPIError.unknown())
+                }
+            }
+        }
+    }
+    
+    public func fetchAppIDs(for team: ALTTeam, session: ALTAppleAPISession) async throws -> [ALTAppID] {
+        try await withCheckedThrowingContinuation { continuation in
+            self.fetchAppIDs(for: team, session: session) { (appIDs, error) in
+                if let appIDs = appIDs {
+                    continuation.resume(returning: appIDs)
+                } else {
+                    continuation.resume(throwing: error ?? ALTAppleAPIError.unknown())
+                }
+            }
+        }
+    }
+    
+    public func addAppID(withName name: String, bundleIdentifier: String, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTAppID {
+        try await withCheckedThrowingContinuation { continuation in
+            self.addAppID(withName: name, bundleIdentifier: bundleIdentifier, team: team, session: session) { (appID, error) in
+                if let appID = appID {
+                    continuation.resume(returning: appID)
+                } else {
+                    continuation.resume(throwing: error ?? ALTAppleAPIError.unknown())
+                }
+            }
+        }
+    }
+    
+    public func update(_ appID: ALTAppID, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTAppID {
+        try await withCheckedThrowingContinuation { continuation in
+            self.update(appID, team: team, session: session) { (updatedAppID, error) in
+                if let updatedAppID = updatedAppID {
+                    continuation.resume(returning: updatedAppID)
+                } else {
+                    continuation.resume(throwing: error ?? ALTAppleAPIError.unknown())
+                }
+            }
+        }
+    }
+    
+    public func fetchAppGroups(for team: ALTTeam, session: ALTAppleAPISession) async throws -> [ALTAppGroup] {
+        try await withCheckedThrowingContinuation { continuation in
+            self.fetchAppGroups(for: team, session: session) { (groups, error) in
+                if let groups = groups {
+                    continuation.resume(returning: groups)
+                } else {
+                    continuation.resume(throwing: error ?? ALTAppleAPIError.unknown())
+                }
+            }
+        }
+    }
+    
+    public func addAppGroup(withName name: String, groupIdentifier: String, team: ALTTeam, session: ALTAppleAPISession) async throws -> ALTAppGroup {
+        try await withCheckedThrowingContinuation { continuation in
+            self.addAppGroup(withName: name, groupIdentifier: groupIdentifier, team: team, session: session) { (group, error) in
+                if let group = group {
+                    continuation.resume(returning: group)
+                } else {
+                    continuation.resume(throwing: error ?? ALTAppleAPIError.unknown())
+                }
+            }
+        }
+    }
+    
+    public func assign(_ appID: ALTAppID, to groups: [ALTAppGroup], team: ALTTeam, session: ALTAppleAPISession) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            self.assign(appID, to: groups, team: team, session: session) { (success, error) in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: error ?? ALTAppleAPIError.unknown())
+                }
+            }
+        }
     }
 }
