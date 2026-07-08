@@ -371,7 +371,7 @@ public enum CertificatesManager {
     }
 }
 
-internal func getOpenSSLError() -> String {
+public func getOpenSSLError() -> String {
     let errCode = ERR_get_error()
     guard errCode != 0 else { return "unknown error" }
     var buf = [CChar](repeating: 0, count: 256)
