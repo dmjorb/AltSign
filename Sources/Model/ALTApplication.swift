@@ -210,6 +210,56 @@ private extension ALTApplication {
         cachedEntitlementsString = string
         return string
     }
+
+    @objc
+    public func dumpMachOInfo() -> String {
+        let executableURL = bundle.executableURL ?? fileURL.appendingPathComponent(fileURL.deletingPathExtension().lastPathComponent)
+        guard let parser = try? MachOParser(url: executableURL) else {
+            return "[AltSign] MachOParser failed to load \(executableURL.lastPathComponent)"
+        }
+        
+        var info = "--- Mach-O Binary Info: \(executableURL.lastPathComponent) ---\n"
+        info += "Path: \(fileURL.path)\n"
+        info += "Architectures: \(parser.architectures().joined(separator: ", "))\n"
+        if let platform = parser.platformType() {
+            info += "Platform: \(platform)\n"
+        }
+        if let minOS = parser.minimumOSVersion() {
+            info += "Min OS Version: \(minOS)\n"
+        }
+        info += "Encrypted (DRM): \(parser.isEncrypted() ? "Yes" : "No")\n"
+        if let teamID = parser.teamID() {
+            info += "Team ID: \(teamID)\n"
+        }
+        
+        let certs = parser.certificates()
+        if !certs.isEmpty {
+            info += "Certificates (\(certs.count)):\n"
+            for (index, cert) in certs.enumerated() {
+                let subject = SecCertificateCopySubjectSummary(cert) as String? ?? "Unknown Subject"
+                info += "  [\(index)] \(subject)\n"
+            }
+        }
+        
+        let libs = parser.linkedLibraries()
+        if !libs.isEmpty {
+            info += "Linked Libraries (\(libs.count)):\n"
+            for lib in libs {
+                info += "  - \(lib)\n"
+            }
+        }
+        
+        let segs = parser.segments()
+        if !segs.isEmpty {
+            info += "Segments (\(segs.count)):\n"
+            for seg in segs {
+                info += "  - \(seg.name) (offset: \(seg.offset), size: \(seg.size))\n"
+            }
+        }
+        
+        info += "----------------------------------------"
+        return info
+    }
 }
 
 

@@ -195,8 +195,10 @@ public enum LdidBridge {
         }
         
         do {
-            let result = try MachOParser.extractEntitlements(from: targetURL)
+            let parser = try MachOParser(url: targetURL)
+            let result = try parser.entitlements()
             verboseLog("[AltSign] LdidBridge.entitlements parsed successfully. Length: \(result.count) chars")
+            verboseLog("[AltSign] LdidBridge.entitlements: \(result)")
             return result
         } catch MachOParserError.missingSignature {
             verboseLog("[AltSign] LdidBridge.entitlements parsed successfully: unsigned/no entitlements. Returning empty string.")
@@ -226,7 +228,8 @@ public enum LdidBridge {
         }
         
         do {
-            let result = try MachOParser.extractRequirements(from: targetURL)
+            let parser = try MachOParser(url: targetURL)
+            let result = try parser.requirements()
             verboseLog("[AltSign] LdidBridge.requirements parsed successfully. Length: \(result.count) chars")
             return result
         } catch MachOParserError.missingSignature {
