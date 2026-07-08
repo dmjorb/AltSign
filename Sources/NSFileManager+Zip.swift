@@ -8,6 +8,15 @@ import SwiftBridge
 
 extension FileManager {
 
+    // MARK: - Zip POSIX Constants
+    // POSIX file type flags (external attributes in ZIP catalog are shifted by 16 bits)
+    private static let S_IFREG: UInt32 = 0o100000 // Regular file
+    private static let S_IFDIR: UInt32 = 0o040000 // Directory
+
+    // Default permissions when not defined in the source archive
+    private static let defaultFilePermissions: UInt32 = 0o644
+    private static let defaultDirPermissions: UInt32 = 0o755
+
     // MARK: unzipArchive
 
     func unzipArchive(
@@ -31,11 +40,18 @@ extension FileManager {
             let outputURL =
                 directoryURL.appendingPathComponent(name)
 
+            let externalAttributes = archive.currentFileExternalAttributes()
+            var permissions = (externalAttributes >> 16) & 0x01FF
+            if permissions == 0 {
+                permissions = name.hasSuffix("/") ? Self.defaultDirPermissions : Self.defaultFilePermissions
+            }
+
             if name.hasSuffix("/") {
                 verboseLog("[AltSign] FileManager.unzipArchive: creating directory: \(outputURL.path)")
                 try createDirectory(
                     at: outputURL,
-                    withIntermediateDirectories: true
+                    withIntermediateDirectories: true,
+                    attributes: [.posixPermissions: NSNumber(value: permissions)]
                 )
                 continue
             }
@@ -48,7 +64,11 @@ extension FileManager {
 
             let data = try archive.readCurrentFile()
 
-            createFile(atPath: outputURL.path, contents: data)
+            createFile(
+                atPath: outputURL.path,
+                contents: data,
+                attributes: [.posixPermissions: NSNumber(value: permissions)]
+            )
 
             progress?.completedUnitCount += Int64(data.count)
 
@@ -131,10 +151,15 @@ extension FileManager {
                 bundleRoot.appendingPathComponent(relative).path +
                 (isDir.boolValue ? "/" : "")
 
-            verboseLog("[AltSign] FileManager.zipAppBundle: writing zip entry relative: \(relative), path in zip: \(zipPath), isDir: \(isDir.boolValue)")
+            let attributes = try self.attributesOfItem(atPath: fileURL.path)
+            let posixPermissions = (attributes[.posixPermissions] as? NSNumber)?.uint32Value ?? (isDir.boolValue ? Self.defaultDirPermissions : Self.defaultFilePermissions)
+            let fileType = isDir.boolValue ? Self.S_IFDIR : Self.S_IFREG
+            let permissions = fileType + posixPermissions
+
+            verboseLog("[AltSign] FileManager.zipAppBundle: writing zip entry relative: \(relative), path in zip: \(zipPath), isDir: \(isDir.boolValue), permissions: \(String(format: "%0o", permissions))")
             let data = isDir.boolValue ? nil : try Data(contentsOf: fileURL)
 
-            try writer.writeFile(path: zipPath, data: data)
+            try writer.writeFile(path: zipPath, data: data, permissions: permissions)
         }
 
         verboseLog("[AltSign] FileManager.zipAppBundle completed. Packaged ipa path: \(ipaURL.path)")

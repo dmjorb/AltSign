@@ -105,3 +105,27 @@ int native_bridge_zipClose(native_bridge_zipFile file)
 {
     return zipClose((zipFile)file, NULL);
 }
+
+int native_bridge_zipOpenNewFileInZipWithPermissions(native_bridge_zipFile file, const char *filename, uint32_t permissions)
+{
+    zip_fileinfo info = {0};
+    info.external_fa = permissions << 16;
+
+    return zipOpenNewFileInZip(
+        (zipFile)file,
+        filename,
+        &info,
+        NULL,0,NULL,0,NULL,
+        Z_DEFLATED,
+        Z_DEFAULT_COMPRESSION
+    );
+}
+
+uint32_t native_bridge_unzGetCurrentFileExternalAttributes(native_bridge_unzFile file)
+{
+    unz_file_info info;
+    if (unzGetCurrentFileInfo((unzFile)file, &info, NULL, 0, NULL, 0, NULL, 0) == 0) {
+        return info.external_fa;
+    }
+    return 0;
+}

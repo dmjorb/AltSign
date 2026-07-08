@@ -40,9 +40,12 @@ int native_bridge_unzCloseCurrentFile(native_bridge_unzFile file);
 
 native_bridge_zipFile native_bridge_zipOpen(const char *path);
 int native_bridge_zipOpenNewFileInZip(native_bridge_zipFile file, const char *filename);
+int native_bridge_zipOpenNewFileInZipWithPermissions(native_bridge_zipFile file, const char *filename, uint32_t permissions);
 int native_bridge_zipWriteInFileInZip(native_bridge_zipFile file, const void *buffer, unsigned len);
 int native_bridge_zipCloseFileInZip(native_bridge_zipFile file);
 int native_bridge_zipClose(native_bridge_zipFile file);
+
+uint32_t native_bridge_unzGetCurrentFileExternalAttributes(native_bridge_unzFile file);
 
 #ifdef __cplusplus
 }

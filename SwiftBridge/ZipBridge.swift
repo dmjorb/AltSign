@@ -75,6 +75,10 @@ public enum ZipBridge {
             return filename
         }
 
+        public func currentFileExternalAttributes() -> UInt32 {
+            return native_bridge_unzGetCurrentFileExternalAttributes(handle)
+        }
+
         // MARK: Reading
 
         public func readCurrentFile() throws -> Data {
@@ -141,15 +145,15 @@ public enum ZipBridge {
             return Writer(h)
         }
 
-        public func writeFile(path: String, data: Data?) throws {
-            verboseLog("[AltSign] ZipBridge.Writer.writeFile started for internal path: '\(path)', data size: \(data?.count ?? 0) bytes")
+        public func writeFile(path: String, data: Data?, permissions: UInt32) throws {
+            verboseLog("[AltSign] ZipBridge.Writer.writeFile started for internal path: '\(path)', data size: \(data?.count ?? 0) bytes, permissions: \(String(format: "%0o", permissions))")
 
             let openOK = path.withCString {
-                native_bridge_zipOpenNewFileInZip(handle, $0)
+                native_bridge_zipOpenNewFileInZipWithPermissions(handle, $0, permissions)
             } == 0
 
             guard openOK else {
-                debugLog("[AltSign] ZipBridge.Writer.writeFile failed: native_bridge_zipOpenNewFileInZip returned error")
+                debugLog("[AltSign] ZipBridge.Writer.writeFile failed: native_bridge_zipOpenNewFileInZipWithPermissions returned error")
                 throw ZipError.writeFailed(.init(fileURLWithPath: path))
             }
 
