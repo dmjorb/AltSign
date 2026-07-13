@@ -134,9 +134,18 @@ private let free_x509_callback: @convention(c) (UnsafeMutableRawPointer?) -> Voi
 
 public enum LdidBridge {
 
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, LocalizedError {
         case invalidPath
         case operationFailed(String)
+
+        public var errorDescription: String? {
+            switch self {
+            case .invalidPath:
+                return "The path provided to ldid is invalid."
+            case .operationFailed(let message):
+                return message
+            }
+        }
     }
 
     // MARK: Read APIs
