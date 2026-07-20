@@ -501,7 +501,10 @@ private extension ALTAppleAPI {
                     if let error {
                         verboseLog("[AltSign] sendAuthenticationRequest failed with error: \(error)")
                     }
-                    guard let data = data else { throw error ?? ALTAppleAPIError.unknown }
+                    guard let data = data, !data.isEmpty else {
+                        let err = error ?? ALTServerError.badServerResponse(reason: "Server returned empty response (Content-Length: 0) — session may have timed out", jsonPayload: "0 bytes")
+                        throw err
+                    }
 
                     guard let responseDictionary = self.parsePlistOrJSON(data),
                           let dictionary = responseDictionary["Response"] as? [String: Any] ?? responseDictionary["response"] as? [String: Any] ?? (responseDictionary["Status"] != nil ? responseDictionary : nil),

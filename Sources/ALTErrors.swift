@@ -293,11 +293,12 @@ public enum ALTServerError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .badServerResponse(let reason, let jsonPayload):
-            return "Invalid server response: \(reason) | Payload: \(jsonPayload)"
+            return "Invalid server response: \(reason) | Payload: '\(jsonPayload)'"
         case .invalidResponseFormat(let rawPayload):
-            return "Invalid server response format: \(rawPayload)"
+            let formattedPayload = rawPayload.isEmpty ? "'' (Content-Length: 0)" : "'\(rawPayload)'"
+            return "Invalid server response format: \(formattedPayload)"
         case .missingKey(let key, let jsonPayload):
-            return "Server response missing required key '\(key)' | Payload: \(jsonPayload)"
+            return "Server response missing required key '\(key)' | Payload: '\(jsonPayload)'"
         }
     }
 }
