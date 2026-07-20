@@ -145,16 +145,14 @@ public final class ALTProvisioningProfile: NSObject, NSCopying {
         // provisioning profiles contain embedded plist.
         // We scan for plist XML start.
 
-        guard
-            let range = encodedData.range(
-                of: Data("<?xml".utf8)
-            )
-        else { return nil }
-
+        guard let range = encodedData.range(of: Data("<?xml".utf8)) else { return nil }
         let plistData = encodedData[range.lowerBound...]
+        
+        guard let endRange = plistData.range(of: Data("</plist>".utf8)) else { return nil }
+        let exactPlistData = plistData[..<endRange.upperBound]
 
         return try? PropertyListSerialization.propertyList(
-            from: plistData,
+            from: exactPlistData,
             options: [],
             format: nil
         ) as? [String: Any]
