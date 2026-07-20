@@ -295,7 +295,20 @@ public enum ALTServerError: LocalizedError {
         case .badServerResponse(let reason, let jsonPayload):
             return "Invalid server response: \(reason) (Payload: '\(jsonPayload)')"
         case .invalidResponseFormat(let rawPayload):
-            let formattedPayload = rawPayload.isEmpty ? "'' (Content-Length: 0)" : "'\(rawPayload)'"
+            let trimmed = rawPayload.trimmingCharacters(in: .whitespacesAndNewlines)
+            let formattedPayload: String
+            if trimmed.isEmpty {
+                formattedPayload = "'' (Content-Length: 0)"
+            } else if trimmed.lowercased().contains("<html") || trimmed.hasPrefix("<!DOCTYPE") || (trimmed.hasPrefix("<") && trimmed.contains(">")) {
+                let stripped = trimmed
+                    .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+                    .components(separatedBy: .whitespacesAndNewlines)
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+                formattedPayload = stripped.isEmpty ? "(HTML response)" : "'\(stripped)'"
+            } else {
+                formattedPayload = "'\(rawPayload)'"
+            }
             return "Invalid server response format: \(formattedPayload)"
         case .missingKey(let key, let jsonPayload):
             return "Server response missing required key '\(key)' (Payload: '\(jsonPayload)')"
