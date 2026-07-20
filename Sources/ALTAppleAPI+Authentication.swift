@@ -67,7 +67,7 @@ public extension ALTAppleAPI
                           let serverPublicKey = responseDictionary["B"] as? Data
                     else {
                         verboseLog("[AltSign] Failed to parse authentication init response dictionary: \(responseDictionary)")
-                        throw URLError(.badServerResponse)
+                        throw ALTServerError.badServerResponse(reason: "Auth init response missing c/s/i/B parameters", jsonPayload: formatPayloadJSON(responseDictionary))
                     }
 
                     verboseLog("""
@@ -109,7 +109,7 @@ public extension ALTAppleAPI
                                   let statusDictionary = responseDictionary["Status"] as? [String: Any]
                             else {
                                 verboseLog("[AltSign] Failed to parse complete response dictionary: \(responseDictionary)")
-                                throw URLError(.badServerResponse)
+                                throw ALTServerError.badServerResponse(reason: "Auth complete response missing M2/spd/Status parameters", jsonPayload: formatPayloadJSON(responseDictionary))
                             }
 
                             verboseLog("""
@@ -130,12 +130,18 @@ public extension ALTAppleAPI
                             }
                             verboseLog("[AltSign] Decrypted server dictionary successfully.")
 
-                            guard let decryptedDictionary = try PropertyListSerialization.propertyList(from: decryptedData, format: nil) as? [String: Any],
-                                  let dsid = decryptedDictionary["adsid"] as? String,
-                                  let idmsToken = decryptedDictionary["GsIdmsToken"] as? String
+                            guard let decryptedDictionary = parsePlistOrJSON(decryptedData) else {
+                                let rawDecrypted = formatPayloadJSON(decryptedData)
+                                verboseLog("[AltSign] Decrypted payload format is invalid (neither Plist nor JSON): \(rawDecrypted)")
+                                throw ALTServerError.invalidResponseFormat(rawPayload: rawDecrypted)
+                            }
+
+                            guard let dsid = (decryptedDictionary["adsid"] as? String) ?? (decryptedDictionary["dsid"] as? CustomStringConvertible)?.description,
+                                  let idmsToken = (decryptedDictionary["GsIdmsToken"] as? String) ?? (decryptedDictionary["idmsToken"] as? String)
                             else {
-                                verboseLog("[AltSign] Decrypted plist format is invalid or missing adsid/GsIdmsToken: \(decryptedData)")
-                                throw URLError(.badServerResponse)
+                                let jsonStr = formatPayloadJSON(decryptedDictionary)
+                                verboseLog("[AltSign] Decrypted dictionary missing adsid/GsIdmsToken: \(jsonStr)")
+                                throw ALTServerError.missingKey(key: "adsid/GsIdmsToken", jsonPayload: jsonStr)
                             }
 
                             verboseLog("[AltSign] Parse complete. dsid: \(dsid), token: \(idmsToken)")
@@ -170,7 +176,7 @@ public extension ALTAppleAPI
                             default:
                                 guard let sessionKey = decryptedDictionary["sk"] as? Data,
                                       let c = decryptedDictionary["c"] as? Data
-                                else { throw URLError(.badServerResponse) }
+                                else { throw ALTServerError.missingKey(key: "sk/c", jsonPayload: formatPayloadJSON(decryptedDictionary)) }
 
                                 context.sessionKey = sessionKey
 
@@ -222,17 +228,20 @@ private extension ALTAppleAPI {
             do {
                 let responseDictionary = try result.get()
 
-                guard let encryptedToken = responseDictionary["et"] as? Data else { throw URLError(.badServerResponse) }
+                guard let encryptedToken = responseDictionary["et"] as? Data else {
+                    throw ALTServerError.missingKey(key: "et", jsonPayload: formatPayloadJSON(responseDictionary))
+                }
                 guard let token = encryptedToken.decryptedGCM(context: context) else { throw ALTAppleAPIError.authenticationHandshakeFailed }
 
-                guard let tokensDictionary = try PropertyListSerialization.propertyList(from: token, format: nil) as? [String: Any] else {
-                    throw URLError(.badServerResponse)
+                guard let tokensDictionary = parsePlistOrJSON(token) else {
+                    let rawTokenStr = formatPayloadJSON(token)
+                    throw ALTServerError.invalidResponseFormat(rawPayload: rawTokenStr)
                 }
 
                 guard let appTokens = tokensDictionary["t"] as? [String: Any],
                       let tokens = appTokens[app] as? [String: Any],
                       let authToken = tokens["token"] as? String
-                else { throw URLError(.badServerResponse) }
+                else { throw ALTServerError.missingKey(key: "t/\(app)/token", jsonPayload: formatPayloadJSON(tokensDictionary)) }
 
                 completionHandler(.success(authToken))
             } catch {
@@ -278,9 +287,10 @@ private extension ALTAppleAPI {
                                 }
                                 guard let data = data else { throw error ?? ALTAppleAPIError.unknown }
 
-                                guard let responseDictionary = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
-                                    verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode verify response plist is invalid")
-                                    throw URLError(.badServerResponse)
+                                guard let responseDictionary = parsePlistOrJSON(data) else {
+                                    let rawVerifyStr = formatPayloadJSON(data)
+                                    verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode verify response is invalid: \(rawVerifyStr)")
+                                    throw ALTServerError.invalidResponseFormat(rawPayload: rawVerifyStr)
                                 }
 
                                 let errorCode = responseDictionary["ec"] as? Int ?? 0
@@ -493,12 +503,13 @@ private extension ALTAppleAPI {
                     }
                     guard let data = data else { throw error ?? ALTAppleAPIError.unknown }
 
-                    guard let responseDictionary = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-                          let dictionary = responseDictionary["Response"] as? [String: Any],
-                          let status = dictionary["Status"] as? [String: Any]
+                    guard let responseDictionary = parsePlistOrJSON(data),
+                          let dictionary = responseDictionary["Response"] as? [String: Any] ?? responseDictionary["response"] as? [String: Any] ?? (responseDictionary["Status"] != nil ? responseDictionary : nil),
+                          let status = dictionary["Status"] as? [String: Any] ?? responseDictionary["Status"] as? [String: Any]
                     else {
-                        verboseLog("[AltSign] sendAuthenticationRequest response is invalid or could not be parsed: \(String(data: data, encoding: .utf8) ?? "unable to decode")")
-                        throw URLError(.badServerResponse)
+                        let rawResponse = formatPayloadJSON(data)
+                        verboseLog("[AltSign] sendAuthenticationRequest response is invalid or could not be parsed: \(rawResponse)")
+                        throw ALTServerError.invalidResponseFormat(rawPayload: rawResponse)
                     }
 
                     verboseLog("[AltSign] sendAuthenticationRequest response Status: \(status)")
@@ -564,6 +575,24 @@ private extension ALTAppleAPI {
         httpHeaders.forEach { request.addValue($0.value, forHTTPHeaderField: $0.key) }
 
         return request
+    }
+}
+
+private extension ALTAppleAPI {
+    func parsePlistOrJSON(_ data: Data) -> [String: Any]? {
+        (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any]
+            ?? (try? JSONSerialization.jsonObject(with: data, options: [])) as? [String: Any]
+    }
+
+    func formatPayloadJSON(_ payload: Any) -> String {
+        if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
+           let jsonString = String(data: data, encoding: .utf8) {
+            return jsonString
+        }
+        if let data = payload as? Data {
+            return String(data: data, encoding: .utf8) ?? data.hexEncodedString()
+        }
+        return "\(payload)"
     }
 }
 

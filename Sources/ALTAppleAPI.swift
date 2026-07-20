@@ -82,11 +82,8 @@ extension ALTAppleAPI {
         }
 
         guard let result = responseDictionary["resultCode"] else {
-            error = NSError(
-                domain: NSURLErrorDomain,
-                code: NSURLErrorBadServerResponse
-            )
-            debugLog("[AltSign] processResponse error: missing resultCode (returning badServerResponse)")
+            error = ALTServerError.missingKey(key: "resultCode", payload: responseDictionary)
+            debugLog("[AltSign] processResponse error: missing resultCode")
             return nil
         }
 

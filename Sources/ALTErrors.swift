@@ -284,3 +284,20 @@ extension ALTAppleAPIError: CustomNSError {
         self = code
     }
 }
+
+public enum ALTServerError: LocalizedError {
+    case badServerResponse(reason: String, jsonPayload: String)
+    case invalidResponseFormat(rawPayload: String)
+    case missingKey(key: String, jsonPayload: String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .badServerResponse(let reason, let jsonPayload):
+            return "Invalid server response: \(reason) | Payload: \(jsonPayload)"
+        case .invalidResponseFormat(let rawPayload):
+            return "Invalid server response format: \(rawPayload)"
+        case .missingKey(let key, let jsonPayload):
+            return "Server response missing required key '\(key)' | Payload: \(jsonPayload)"
+        }
+    }
+}
