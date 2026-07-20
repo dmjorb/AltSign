@@ -82,7 +82,9 @@ extension ALTAppleAPI {
         }
 
         guard let result = responseDictionary["resultCode"] else {
-            error = ALTServerError.missingKey(key: "resultCode", payload: responseDictionary)
+            let jsonPayload = (try? JSONSerialization.data(withJSONObject: responseDictionary, options: []))
+                .flatMap { String(data: $0, encoding: .utf8) } ?? "\(responseDictionary)"
+            error = ALTServerError.missingKey(key: "resultCode", jsonPayload: jsonPayload)
             debugLog("[AltSign] processResponse error: missing resultCode")
             return nil
         }
