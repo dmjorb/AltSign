@@ -309,9 +309,9 @@ public enum ALTServerError: LocalizedError {
             } else {
                 formattedPayload = "'\(rawPayload)'"
             }
-            return "Invalid server response format: \(formattedPayload)"
+            return "Invalid server response: unparseable format (Payload: \(formattedPayload))"
         case .missingKey(let key, let jsonPayload):
-            return "Server response missing required key '\(key)' (Payload: '\(jsonPayload)')"
+            return "Invalid server response: missing required key '\(key)' (Payload: '\(jsonPayload)')"
         }
     }
 }
