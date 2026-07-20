@@ -585,7 +585,8 @@ private extension ALTAppleAPI {
     }
 
     func formatPayloadJSON(_ payload: Any) -> String {
-        if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
+        if JSONSerialization.isValidJSONObject(payload),
+           let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
            let jsonString = String(data: data, encoding: .utf8) {
             return jsonString
         }
