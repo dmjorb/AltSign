@@ -201,29 +201,22 @@ extension ALTAppleAPI {
             if let error {
                 verboseLog("[AltSign] sendRequest failed with error: \(error)")
             }
-            guard let data else {
-                completionHandler(nil, error)
+            guard let data, !data.isEmpty else {
+                let err = error ?? ALTServerError.badServerResponse(reason: "Server returned empty response (Content-Length: 0) — session may have timed out", jsonPayload: "0 bytes")
+                completionHandler(nil, err)
                 return
             }
 
-            do {
-                let plist = try PropertyListSerialization.propertyList(
-                    from: data,
-                    options: [],
-                    format: nil
-                )
+            let parsedObj: Any? = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil))
+                ?? (try? JSONSerialization.jsonObject(with: data, options: []))
+
+            if let plist = parsedObj as? [String: Any] {
                 verboseLog("[AltSign] sendRequest response: \(prettyJSONString(from: plist))")
-                completionHandler(plist as? [String: Any], nil)
-            } catch {
-                verboseLog("[AltSign] sendRequest failed to parse response plist. Raw: \(String(data: data, encoding: .utf8) ?? "unable to decode")")
-                completionHandler(
-                    nil,
-                    NSError(
-                        domain: NSURLErrorDomain,
-                        code: NSURLErrorBadServerResponse,
-                        userInfo: [NSUnderlyingErrorKey: error]
-                    )
-                )
+                completionHandler(plist, nil)
+            } else {
+                let rawStr = String(data: data, encoding: .utf8) ?? data.hexEncodedString()
+                verboseLog("[AltSign] sendRequest failed to parse response plist. Raw: \(rawStr)")
+                completionHandler(nil, ALTServerError.invalidResponseFormat(rawPayload: rawStr))
             }
         }.resume()
     }
@@ -328,15 +321,9 @@ extension ALTAppleAPI {
                 verboseLog("[AltSign] sendServicesRequest response: \(prettyJSONString(from: json))")
                 completionHandler(json as? [String: Any], nil)
             } catch {
-                verboseLog("[AltSign] sendServicesRequest failed to parse response JSON. Raw: \(String(data: data, encoding: .utf8) ?? "unable to decode")")
-                completionHandler(
-                    nil,
-                    NSError(
-                        domain: NSURLErrorDomain,
-                        code: NSURLErrorBadServerResponse,
-                        userInfo: [NSUnderlyingErrorKey: error]
-                    )
-                )
+                let rawStr = String(data: data, encoding: .utf8) ?? data.hexEncodedString()
+                verboseLog("[AltSign] sendServicesRequest failed to parse response JSON. Raw: \(rawStr)")
+                completionHandler(nil, ALTServerError.invalidResponseFormat(rawPayload: rawStr))
             }
         }.resume()
     }

@@ -667,29 +667,22 @@ public extension ALTAppleAPI {
             if let error {
                 verboseLog("[AltSign] sendRequest(plist) failed with error: \(error)")
             }
-            guard let data else {
-                completionHandler(nil, error)
+            guard let data, !data.isEmpty else {
+                let err = error ?? ALTServerError.badServerResponse(reason: "Server returned empty response (Content-Length: 0) — session may have timed out", jsonPayload: "0 bytes")
+                completionHandler(nil, err)
                 return
             }
 
-            do {
-                let plist = try PropertyListSerialization.propertyList(
-                    from: data,
-                    options: [],
-                    format: nil
-                )
-                verboseLog("[AltSign] sendRequest(plist) response: \(plist as? [String: Any] ?? [:])")
-                completionHandler(plist as? [String: Any], nil)
-            } catch {
-                verboseLog("[AltSign] sendRequest(plist) failed to parse response plist. Raw: \(String(data: data, encoding: .utf8) ?? "unable to decode")")
-                completionHandler(
-                    nil,
-                    NSError(
-                        domain: NSURLErrorDomain,
-                        code: NSURLErrorBadServerResponse,
-                        userInfo: [NSUnderlyingErrorKey: error]
-                    )
-                )
+            let parsedObj: Any? = (try? PropertyListSerialization.propertyList(from: data, options: [], format: nil))
+                ?? (try? JSONSerialization.jsonObject(with: data, options: []))
+
+            if let plist = parsedObj as? [String: Any] {
+                verboseLog("[AltSign] sendRequest(plist) response: \(plist)")
+                completionHandler(plist, nil)
+            } else {
+                let rawStr = String(data: data, encoding: .utf8) ?? data.hexEncodedString()
+                verboseLog("[AltSign] sendRequest(plist) failed to parse response plist. Raw: \(rawStr)")
+                completionHandler(nil, ALTServerError.invalidResponseFormat(rawPayload: rawStr))
             }
         }.resume()
     }
