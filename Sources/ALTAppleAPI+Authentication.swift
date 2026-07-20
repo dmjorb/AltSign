@@ -17,7 +17,7 @@ public extension ALTAppleAPI
                             verificationHandler: ((@escaping (String?) -> Void) -> Void)?,
                             completionHandler: @escaping (ALTAccount?, ALTAppleAPISession?, Error?) -> Void) {
         // Authenticating only works with lowercase email address, even if Apple ID contains capital letters.
-        let sanitizedAppleID = unsanitizedAppleID.lowercased()
+        let sanitizedAppleID = unsanitizedAppleID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         debugLog("[AltSign] Starting authenticate for Apple ID: \(sanitizedAppleID)")
 
