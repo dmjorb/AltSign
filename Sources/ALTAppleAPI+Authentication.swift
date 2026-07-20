@@ -261,11 +261,14 @@ private extension ALTAppleAPI {
 
         let request = makeTwoFactorCodeRequest(url: requestURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData)
 
-        let requestCodeTask = session.dataTask(with: request) { data, _, error in
+        let requestCodeTask = session.dataTask(with: request) { data, response, error in
+            let httpResponse = response as? HTTPURLResponse
+            let statusCode = httpResponse?.statusCode ?? 0
+            let responseStr = data != nil ? self.formatPayloadJSON(data!) : "nil"
             if let error {
-                verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode request code task failed: \(error)")
+                verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode request code task failed: \(error) (status: \(statusCode))")
             } else {
-                verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode request code task succeeded")
+                verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode request code task succeeded (status: \(statusCode), response: \(responseStr))")
             }
             do {
                 guard error == nil else { throw error! }
@@ -355,11 +358,14 @@ private extension ALTAppleAPI {
             return
         }
 
-        let requestCodeTask = session.dataTask(with: request) { _, response, error in
+        let requestCodeTask = session.dataTask(with: request) { data, response, error in
+            let httpResponse = response as? HTTPURLResponse
+            let statusCode = httpResponse?.statusCode ?? 0
+            let responseStr = data != nil ? self.formatPayloadJSON(data!) : "nil"
             if let error {
-                verboseLog("[AltSign] requestSMSTwoFactorCode request code task failed: \(error)")
+                verboseLog("[AltSign] requestSMSTwoFactorCode request code task failed: \(error) (status: \(statusCode))")
             } else {
-                verboseLog("[AltSign] requestSMSTwoFactorCode request code task succeeded")
+                verboseLog("[AltSign] requestSMSTwoFactorCode request code task succeeded (status: \(statusCode), response: \(responseStr))")
             }
             do {
                 guard error == nil else { throw error! }
