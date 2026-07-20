@@ -28,8 +28,8 @@ public extension ALTAppleAPI
                 "pbe": false,
                 "prkgen": true,
                 "svct": "iCloud",
-                "loc": Locale.current.identifier,
-                "X-Apple-Locale": Locale.current.identifier,
+                "loc": anisetteData.locale.sanitizedIdentifier,
+                "X-Apple-Locale": anisetteData.locale.sanitizedIdentifier,
                 "X-Apple-I-MD": anisetteData.oneTimePassword,
                 "X-Apple-I-MD-M": anisetteData.machineID,
                 "X-Mme-Device-Id": anisetteData.deviceUniqueIdentifier,
@@ -37,7 +37,7 @@ public extension ALTAppleAPI
                 "X-Apple-I-MD-RINFO": anisetteData.routingInfo,
                 "X-Apple-I-SRL-NO": anisetteData.deviceSerialNumber,
                 "X-Apple-I-Client-Time": dateFormatter.string(from: anisetteData.date),
-                "X-Apple-I-TimeZone": TimeZone.current.abbreviation() ?? "PST"
+                "X-Apple-I-TimeZone": anisetteData.timeZone.abbreviation() ?? "PST"
             ] as [String: Any]
 
             let context = GSAContext(username: sanitizedAppleID, password: password)
@@ -576,7 +576,7 @@ private extension ALTAppleAPI {
             "X-Mme-Device-Id": anisetteData.deviceUniqueIdentifier,
             "X-MMe-Client-Info": anisetteData.deviceDescription,
             "X-Apple-I-Client-Time": dateFormatter.string(from: anisetteData.date),
-            "X-Apple-Locale": anisetteData.locale.identifier,
+            "X-Apple-Locale": anisetteData.locale.sanitizedIdentifier,
             "X-Apple-I-TimeZone": anisetteData.timeZone.abbreviation() ?? "PST"
         ]
 
