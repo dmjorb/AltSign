@@ -82,10 +82,23 @@ extension ALTAppleAPI {
         }
 
         guard let result = responseDictionary["resultCode"] else {
-            let jsonPayload = (try? JSONSerialization.data(withJSONObject: responseDictionary, options: []))
-                .flatMap { String(data: $0, encoding: .utf8) } ?? "\(responseDictionary)"
-            error = ALTServerError.missingKey(key: "resultCode", jsonPayload: jsonPayload)
-            debugLog("[AltSign] processResponse error: missing resultCode")
+            if let errors = responseDictionary["errors"] as? [[String: Any]],
+               let firstError = errors.first,
+               let detail = firstError["detail"] as? String {
+                error = NSError(
+                    domain: ALTAppleAPIErrorDomain,
+                    code: ALTAppleAPIError.unknown.rawValue,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: detail
+                    ]
+                )
+                debugLog("[AltSign] processResponse parsed Apple developer API error: \(detail)")
+            } else {
+                let jsonPayload = (try? JSONSerialization.data(withJSONObject: responseDictionary, options: []))
+                    .flatMap { String(data: $0, encoding: .utf8) } ?? "\(responseDictionary)"
+                error = ALTServerError.missingKey(key: "resultCode", jsonPayload: jsonPayload)
+                debugLog("[AltSign] processResponse error: missing resultCode")
+            }
             return nil
         }
 
