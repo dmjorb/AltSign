@@ -321,7 +321,9 @@ public extension ALTAppleAPI {
                 case 9412:
                     return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidBundleIdentifier.rawValue, userInfo: nil) as Error
                 default:
-                    return nil
+                    let desc = (responseDictionary["userString"] ?? responseDictionary["resultString"]) as? String ?? ""
+                    let localizedDescription = !desc.isEmpty ? "\(desc) (\(resultCode))" : "Apple Developer API error (\(resultCode))"
+                    return NSError(domain: ALTUnderlyingAppleAPIErrorDomain, code: resultCode, userInfo: [NSLocalizedDescriptionKey: localizedDescription]) as Error
                 }
             }, error: &error) as? ALTAppID
             

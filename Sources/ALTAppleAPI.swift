@@ -94,10 +94,9 @@ extension ALTAppleAPI {
                 )
                 debugLog("[AltSign] processResponse parsed Apple developer API error: \(detail)")
             } else {
-                let jsonPayload = (try? JSONSerialization.data(withJSONObject: responseDictionary, options: []))
-                    .flatMap { String(data: $0, encoding: .utf8) } ?? "\(responseDictionary)"
+                let jsonPayload = prettyJSONString(from: responseDictionary)
                 error = ALTServerError.missingKey(key: "resultCode", jsonPayload: jsonPayload)
-                debugLog("[AltSign] processResponse error: missing resultCode")
+                debugLog("[AltSign] processResponse error: missing resultCode in payload:\n\(jsonPayload)")
             }
             return nil
         }
@@ -112,16 +111,19 @@ extension ALTAppleAPI {
 
         if tempError == nil {
 
-            let desc =
-                (responseDictionary["userString"]
-                 ?? responseDictionary["resultString"]) as? String ?? ""
+            let desc = (responseDictionary["userString"] ?? responseDictionary["resultString"]) as? String
+            let localizedDescription: String
+            if let desc, !desc.isEmpty {
+                localizedDescription = "\(desc) (\(resultCode))"
+            } else {
+                localizedDescription = "Apple Developer API error (\(resultCode))"
+            }
 
             tempError = NSError(
                 domain: ALTUnderlyingAppleAPIErrorDomain,
                 code: resultCode,
                 userInfo: [
-                    NSLocalizedDescriptionKey:
-                        "\(desc) (\(resultCode))"
+                    NSLocalizedDescriptionKey: localizedDescription
                 ]
             )
         }
@@ -218,6 +220,7 @@ extension ALTAppleAPI {
             }
             guard let data, !data.isEmpty else {
                 let err = error ?? ALTServerError.badServerResponse(reason: "Server returned empty response (Content-Length: 0) — session may have timed out", jsonPayload: "0 bytes")
+                verboseLog("[AltSign] sendRequest server returned 0 bytes / empty response")
                 completionHandler(nil, err)
                 return
             }
@@ -228,9 +231,12 @@ extension ALTAppleAPI {
             if let plist = parsedObj as? [String: Any] {
                 verboseLog("[AltSign] sendRequest response: \(prettyJSONString(from: plist))")
                 completionHandler(plist, nil)
+            } else if let parsedObj {
+                verboseLog("[AltSign] sendRequest response non-dictionary payload: \(prettyJSONString(from: parsedObj))")
+                completionHandler(["result": parsedObj, "resultCode": 0], nil)
             } else {
                 let rawStr = String(data: data, encoding: .utf8) ?? data.hexEncodedString()
-                verboseLog("[AltSign] sendRequest failed to parse response plist. Raw: \(rawStr)")
+                verboseLog("[AltSign] sendRequest failed to parse response plist/json. Raw: \(rawStr)")
                 completionHandler(nil, ALTServerError.invalidResponseFormat(rawPayload: rawStr))
             }
         }.resume()
@@ -320,21 +326,22 @@ extension ALTAppleAPI {
             if let error {
                 verboseLog("[AltSign] sendServicesRequest failed with error: \(error)")
             }
-            guard let data else {
-                completionHandler(nil, error)
-                return
-            }
-
-            if data.isEmpty {
-                verboseLog("[AltSign] sendServicesRequest response: (empty)")
-                completionHandler([:], nil)
+            guard let data, !data.isEmpty else {
+                let err = error ?? ALTServerError.badServerResponse(reason: "Server returned empty response (Content-Length: 0) — session may have timed out", jsonPayload: "0 bytes")
+                verboseLog("[AltSign] sendServicesRequest server returned 0 bytes / empty response")
+                completionHandler(nil, err)
                 return
             }
 
             do {
                 let json = try JSONSerialization.jsonObject(with: data)
-                verboseLog("[AltSign] sendServicesRequest response: \(prettyJSONString(from: json))")
-                completionHandler(json as? [String: Any], nil)
+                if let dict = json as? [String: Any] {
+                    verboseLog("[AltSign] sendServicesRequest response: \(prettyJSONString(from: dict))")
+                    completionHandler(dict, nil)
+                } else {
+                    verboseLog("[AltSign] sendServicesRequest response non-dictionary JSON: \(prettyJSONString(from: json))")
+                    completionHandler(["result": json, "resultCode": 0], nil)
+                }
             } catch {
                 let rawStr = String(data: data, encoding: .utf8) ?? data.hexEncodedString()
                 verboseLog("[AltSign] sendServicesRequest failed to parse response JSON. Raw: \(rawStr)")
