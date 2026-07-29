@@ -11,6 +11,8 @@ public enum AltSignLogging {
     public private(set) static var isLoggingEnabled = false
 
     public static func setLogging(_ enabled: Bool) {
+        defer { debugLog("[AltSign] setLogging(\(enabled)) completed") }
+        debugLog("[AltSign] setLogging(\(enabled)) invoked")
         isLoggingEnabled = enabled
     }
 }
