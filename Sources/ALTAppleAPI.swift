@@ -322,14 +322,24 @@ extension ALTAppleAPI {
             request.setValue($1, forHTTPHeaderField: $0)
         }
 
-        session.dataTask(with: request) { data, _, error in
+        session.dataTask(with: request) { data, response, error in
             if let error {
                 verboseLog("[AltSign] sendServicesRequest failed with error: \(error)")
             }
+            
+            let httpResponse = response as? HTTPURLResponse
+            let isDelete = methodOverride == "DELETE" || request.httpMethod == "DELETE"
+            let isNoContent = httpResponse?.statusCode == 204
+            
             guard let data, !data.isEmpty else {
-                let err = error ?? ALTServerError.badServerResponse(reason: "Server returned empty response (Content-Length: 0) — session may have timed out", jsonPayload: "0 bytes")
-                verboseLog("[AltSign] sendServicesRequest server returned 0 bytes / empty response")
-                completionHandler(nil, err)
+                if (isDelete || isNoContent) && error == nil {
+                    verboseLog("[AltSign] sendServicesRequest: successful empty response for DELETE or 204")
+                    completionHandler([:], nil)
+                } else {
+                    let err = error ?? ALTServerError.badServerResponse(reason: "Server returned empty response (Content-Length: 0) — session may have timed out", jsonPayload: "0 bytes")
+                    verboseLog("[AltSign] sendServicesRequest server returned 0 bytes / empty response")
+                    completionHandler(nil, err)
+                }
                 return
             }
 
