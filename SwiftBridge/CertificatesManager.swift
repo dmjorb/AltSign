@@ -236,30 +236,23 @@ public enum CertificatesManager {
 
         var key: OpaquePointer? = nil
         var cert: OpaquePointer? = nil
-        var parsed = false
-        let passwordList = [password, "", nil]
+        let res: Int32
 
-        for pass in passwordList {
-            let passStr = pass?.cString(using: .utf8)
-            var keyPtr: OpaquePointer? = nil
-            var certPtr: OpaquePointer? = nil
-
-            let res = passStr?.withUnsafeBufferPointer { buf in
-                PKCS12_parse(p12, buf.baseAddress, &keyPtr, &certPtr, nil)
-            } ?? PKCS12_parse(p12, nil, &keyPtr, &certPtr, nil)
-
-            if res == 1 {
-                key = keyPtr
-                cert = certPtr
-                parsed = true
-                break
-            } else {
-                if let keyPtr { EVP_PKEY_free(keyPtr) }
-                if let certPtr { X509_free(certPtr) }
+        if let password = password {
+            guard let passStr = password.cString(using: .utf8) else {
+                verboseLog("[AltSign] CertificatesManager.extractPKCS12 Invalid password string. Cannot be parsed as UTF-8 string.")
+                throw ALTCertificateError.decryptionFailed(cause: "Invalid UTF-8 password string.")
             }
+            res = passStr.withUnsafeBufferPointer { buf in
+                PKCS12_parse(p12, buf.baseAddress, &key, &cert, nil)
+            }
+        } else {
+            res = PKCS12_parse(p12, nil, &key, &cert, nil)
         }
 
-        guard parsed, let cert, let key else {
+        guard res == 1, let cert = cert, let key = key else {
+            if let key { EVP_PKEY_free(key) }
+            if let cert { X509_free(cert) }
             throw ALTCertificateError.decryptionFailed(cause: getOpenSSLError())
         }
         defer {
