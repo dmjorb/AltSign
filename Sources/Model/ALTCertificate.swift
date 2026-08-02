@@ -200,25 +200,20 @@ public final class ALTCertificate: NSObject {
     // MARK: P12 Export
 
     /// Unencrypted PKCS#12 Export (pass = nil)
-    public func unencryptedP12Data() -> Data? {
-        encryptedP12Data(password: nil)
+    public func unencryptedP12Data() throws -> Data {
+        try encryptedP12Data(password: nil)
     }
 
     /// Encrypted PKCS#12 Export (pass = password, including "")
-    public func encryptedP12Data(password: String?) -> Data? {
-
-        guard let certData = data else { return nil }
-
-        do {
-            return try CertificatesManager.createPKCS12(
-                cert: certData,
-                key: privateKey,
-                password: password
-            )
-        } catch {
-            debugLog("[AltSign] ALTCertificate.encryptedP12Data failed: \(error)")
-            return nil
+    public func encryptedP12Data(password: String?) throws -> Data {
+        guard let certData = data else {
+            throw ALTCertificateError.extractionFailed(cause: "Certificate PEM data is missing.")
         }
+        return try CertificatesManager.createPKCS12(
+            cert: certData,
+            key: privateKey,
+            password: password
+        )
     }
 }
 
