@@ -85,6 +85,12 @@ public final class ALTCertificate: NSObject {
 
     // MARK: P12 Init
 
+    /// Unencrypted PKCS#12 Init (pass = nil)
+    public convenience init(p12Data: Data) throws {
+        try self.init(p12Data: p12Data, password: nil)
+    }
+
+    /// Encrypted PKCS#12 Init (pass = password, including "")
     public convenience init(
         p12Data: Data,
         password: String?
@@ -193,11 +199,13 @@ public final class ALTCertificate: NSObject {
 
     // MARK: P12 Export
 
-    public func p12Data() -> Data? {
-        encryptedP12Data(password: "")
+    /// Unencrypted PKCS#12 Export (pass = nil)
+    public func unencryptedP12Data() -> Data? {
+        encryptedP12Data(password: nil)
     }
 
-    public func encryptedP12Data(password: String) -> Data? {
+    /// Encrypted PKCS#12 Export (pass = password, including "")
+    public func encryptedP12Data(password: String?) -> Data? {
 
         guard let certData = data else { return nil }
 
@@ -211,10 +219,6 @@ public final class ALTCertificate: NSObject {
             debugLog("[AltSign] ALTCertificate.encryptedP12Data failed: \(error)")
             return nil
         }
-    }
-
-    public func encryptedP12Data(withPassword password: String) -> Data? {
-        return self.encryptedP12Data(password: password)
     }
 }
 

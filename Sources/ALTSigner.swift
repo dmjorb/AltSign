@@ -167,7 +167,7 @@ private extension ALTSigner {
 
         // ---- LDID SIGNING VIA NATIVE BRIDGE ----
 
-        guard let keyData = certificate.p12Data() else {
+        guard let keyData = certificate.unencryptedP12Data() else {
             debugLog("[AltSign] ALTSigner.performSigning error: Failed to get p12 certificate data")
             throw NSError(
                 domain: AltSignErrorDomain,

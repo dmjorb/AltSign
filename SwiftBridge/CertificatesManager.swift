@@ -230,7 +230,9 @@ public enum CertificatesManager {
         verboseLog("[AltSign] CertificatesManager.extractPKCS12 started. Data size: \(data.count) bytes, hasPassword: \(password != nil)")
 
         guard let p12 = readBIO(data, reader: { d2i_PKCS12_bio($0, nil) }) else {
-            throw ALTCertificateError.invalidFormat(cause: getOpenSSLError())
+            let cause = getOpenSSLError()
+            verboseLog("[AltSign] CertificatesManager.extractPKCS12 failed: d2i_PKCS12_bio returned nil (cause: \(cause))")
+            throw ALTCertificateError.invalidFormat(cause: cause)
         }
         defer { PKCS12_free(p12) }
 
@@ -253,7 +255,9 @@ public enum CertificatesManager {
         guard res == 1, let cert = cert, let key = key else {
             if let key { EVP_PKEY_free(key) }
             if let cert { X509_free(cert) }
-            throw ALTCertificateError.decryptionFailed(cause: getOpenSSLError())
+            let cause = getOpenSSLError()
+            verboseLog("[AltSign] CertificatesManager.extractPKCS12 failed: PKCS12_parse failed (cause: \(cause))")
+            throw ALTCertificateError.decryptionFailed(cause: cause)
         }
         defer {
             EVP_PKEY_free(key)
@@ -272,7 +276,9 @@ public enum CertificatesManager {
 
         guard let certData = dataFromBIO(certBIO),
               let keyData = dataFromBIO(keyBIO) else {
-            throw ALTCertificateError.memoryAllocationFailed(cause: getOpenSSLError())
+            let cause = getOpenSSLError()
+            verboseLog("[AltSign] CertificatesManager.extractPKCS12 failed: memoryAllocationFailed (cause: \(cause))")
+            throw ALTCertificateError.memoryAllocationFailed(cause: cause)
         }
 
         verboseLog("[AltSign] CertificatesManager.extractPKCS12 succeeded. Extracted cert size: \(certData.count) bytes, key size: \(keyData.count) bytes")
@@ -317,7 +323,7 @@ public enum CertificatesManager {
     public static func createPKCS12(
         cert: Data,
         key: Data?,
-        password: String
+        password: String?
     ) throws -> Data {
 
         verboseLog("[AltSign] CertificatesManager.createPKCS12 started. Cert size: \(cert.count) bytes, hasKey: \(key != nil)")
@@ -341,7 +347,20 @@ public enum CertificatesManager {
         }
         defer { if let keyPkey { EVP_PKEY_free(keyPkey) } }
 
-        guard let p12 = PKCS12_create(password, "", keyPkey, certX509, nil, 0, 0, 0, 0, 0) else {
+        let p12: OpaquePointer?
+        if let password = password {
+            guard let passStr = password.cString(using: .utf8) else {
+                verboseLog("[AltSign] CertificatesManager.createPKCS12 failed: invalid UTF-8 password string")
+                throw Error.operationFailed("invalid UTF-8 password string")
+            }
+            p12 = passStr.withUnsafeBufferPointer { buf in
+                PKCS12_create(buf.baseAddress, "", keyPkey, certX509, nil, 0, 0, 0, 0, 0)
+            }
+        } else {
+            p12 = PKCS12_create(nil, "", keyPkey, certX509, nil, 0, 0, 0, 0, 0)
+        }
+
+        guard let p12 = p12 else {
             let cause = getOpenSSLError()
             debugLog("[AltSign] CertificatesManager.createPKCS12 failed: PKCS12_create returned nil (cause: \(cause))")
             throw Error.operationFailed("failed to create PKCS12 container\ncause: \(cause)")
@@ -361,6 +380,14 @@ public enum CertificatesManager {
 
         verboseLog("[AltSign] CertificatesManager.createPKCS12 succeeded. Output size: \(result.count) bytes")
         return result
+    }
+
+    public static func extractUnencryptedPKCS12(_ data: Data) throws -> (cert: Data, key: Data) {
+        return try extractPKCS12(data, password: nil)
+    }
+
+    public static func createUnencryptedPKCS12(cert: Data, key: Data?) throws -> Data {
+        return try createPKCS12(cert: cert, key: key, password: nil)
     }
 }
 
