@@ -22,7 +22,7 @@ public final class ALTProvisioningProfile: NSObject, NSCopying {
     public private(set) var creationDate: Date
     public private(set) var expirationDate: Date
 
-    public private(set) var entitlements: [ALTEntitlement: Any]
+    public private(set) var entitlements: [ALTEntitlement: any Sendable]
     public private(set) var certificates: [ALTCertificate]
     public private(set) var deviceIDs: [String]
 
@@ -87,7 +87,7 @@ public final class ALTProvisioningProfile: NSObject, NSCopying {
         self.creationDate = creationDate
         self.expirationDate = expirationDate
         
-        self.entitlements = entitlementsRaw.reduce(into: [ALTEntitlement: Any]()) { dict, pair in
+        self.entitlements = entitlementsRaw.reduce(into: [ALTEntitlement: any Sendable]()) { dict, pair in
             dict[ALTEntitlement(rawValue: pair.key)] = pair.value
         }
         self.deviceIDs = (dict["ProvisionedDevices"] as? [String]) ?? []

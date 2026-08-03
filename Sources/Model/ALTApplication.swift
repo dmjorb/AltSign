@@ -47,7 +47,7 @@ public final class ALTApplication: NSObject {
     public let minimumiOSVersion: OperatingSystemVersion
     public let supportedDeviceTypes: ALTDeviceType
 
-    public var entitlements: [ALTEntitlement: Any] {
+    public var entitlements: [ALTEntitlement: any Sendable] {
         loadEntitlements()
     }
 
@@ -63,7 +63,7 @@ public final class ALTApplication: NSObject {
     // MARK: Private
 
     private let iconName: String?
-    private var cachedEntitlements: [ALTEntitlement: Any]?
+    private var cachedEntitlements: [ALTEntitlement: any Sendable]?
     private var cachedEntitlementsString: String?
 
     // MARK: Init
@@ -174,13 +174,13 @@ public final class ALTApplication: NSObject {
 
 private extension ALTApplication {
 
-    func loadEntitlements() -> [ALTEntitlement: Any] {
+    func loadEntitlements() -> [ALTEntitlement: any Sendable] {
 
         if let cachedEntitlements {
             return cachedEntitlements
         }
 
-        var result: [ALTEntitlement: Any] = [:]
+        var result: [ALTEntitlement: any Sendable] = [:]
 
         if !entitlementsString.isEmpty,
            let data = entitlementsString.data(using: .utf8),
@@ -190,7 +190,7 @@ private extension ALTApplication {
                 format: nil
            ) as? [String: Any] {
 
-            result = plist.reduce(into: [ALTEntitlement: Any]()) { dict, pair in
+            result = plist.reduce(into: [ALTEntitlement: any Sendable]()) { dict, pair in
                 dict[ALTEntitlement(rawValue: pair.key)] = pair.value
             }
         }

@@ -16,7 +16,7 @@ public final class ALTAppID: NSObject, NSCopying {
     public var expirationDate: Date?
 
     public var features: [ALTFeature: Any]
-    public var entitlements: [ALTEntitlement: Any]
+    public var entitlements: [ALTEntitlement: any Sendable]
     public var capabilities: [ALTCapability: Any] = [:]
 
     // MARK: Designated Init
