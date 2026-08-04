@@ -241,3 +241,5 @@ public extension Data {
 }
 
 public typealias ALTCertificateError = SwiftBridge.ALTCertificateError
+public typealias MachOParser = SwiftBridge.MachOParser
+public typealias MachOParserError = SwiftBridge.MachOParserError
