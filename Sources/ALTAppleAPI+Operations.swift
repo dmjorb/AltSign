@@ -141,7 +141,7 @@ public extension ALTAppleAPI {
     
     /* Certificates */
     func fetchCertificates(for team: ALTTeam, session: ALTAppleAPISession, 
-                           types: [String] = ["IOS_DEVELOPMENT", "DEVELOPMENT", "APPLE_DEVELOPMENT"], 
+                           types: [String] = ["IOS_DEVELOPMENT", "DEVELOPMENT"], 
                            completionHandler: @escaping ([ALTCertificate]?, Error?) -> Void) 
     {
         verboseLog("[AltSign] fetchCertificates starting for team: \(team.name) (types: \(types))")
