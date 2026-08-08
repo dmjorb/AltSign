@@ -154,7 +154,7 @@ public extension ALTAppleAPI {
             additionalParameters: ["filter[certificateType]": typesString], 
             session: session, 
             team: team, 
-            includeAnisette: false
+            includeAnisette: true
         ){ responseDictionary, requestError in
             if let error = requestError {
                 verboseLog("[AltSign] fetchCertificates request failed with error: \(error)")
