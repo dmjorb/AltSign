@@ -14,6 +14,7 @@ public extension ALTAppleAPI
     @objc func authenticate(appleID unsanitizedAppleID: String,
                             password: String,
                             anisetteData: ALTAnisetteData,
+                            xcodeVersion: String,
                             verificationHandler: ((@escaping (String?) -> Void) -> Void)?,
                             completionHandler: @escaping (ALTAccount?, ALTAppleAPISession?, Error?) -> Void) {
         // Authenticating only works with lowercase email address, even if Apple ID contains capital letters.
@@ -154,22 +155,22 @@ public extension ALTAppleAPI
                             case "trustedDeviceSecondaryAuth":
                                 guard let verificationHandler = verificationHandler else { throw ALTAppleAPIError.requiresTwoFactorAuthentication }
 
-                                self.requestTrustedDeviceTwoFactorCode(dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData, verificationHandler: verificationHandler) { result in
+                                self.requestTrustedDeviceTwoFactorCode(dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData, xcodeVersion: xcodeVersion, verificationHandler: verificationHandler) { result in
                                     switch result {
                                     case let .failure(error): completionHandler(nil, nil, error)
                                     case .success:
-                                        self.authenticate(appleID: unsanitizedAppleID, password: password, anisetteData: anisetteData, verificationHandler: verificationHandler, completionHandler: completionHandler)
+                                        self.authenticate(appleID: unsanitizedAppleID, password: password, anisetteData: anisetteData, xcodeVersion: xcodeVersion, verificationHandler: verificationHandler, completionHandler: completionHandler)
                                     }
                                 }
 
                             case "secondaryAuth":
                                 guard let verificationHandler = verificationHandler else { throw ALTAppleAPIError.requiresTwoFactorAuthentication }
 
-                                self.requestSMSTwoFactorCode(dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData, verificationHandler: verificationHandler) { result in
+                                self.requestSMSTwoFactorCode(dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData, xcodeVersion: xcodeVersion, verificationHandler: verificationHandler) { result in
                                     switch result {
                                     case let .failure(error): completionHandler(nil, nil, error)
                                     case .success:
-                                        self.authenticate(appleID: unsanitizedAppleID, password: password, anisetteData: anisetteData, verificationHandler: verificationHandler, completionHandler: completionHandler)
+                                        self.authenticate(appleID: unsanitizedAppleID, password: password, anisetteData: anisetteData, xcodeVersion: xcodeVersion, verificationHandler: verificationHandler, completionHandler: completionHandler)
                                     }
                                 }
 
@@ -198,7 +199,7 @@ public extension ALTAppleAPI
                                     case let .failure(error): completionHandler(nil, nil, error)
                                     case let .success(token):
 
-                                        let session = ALTAppleAPISession(dsid: dsid, authToken: token, anisetteData: anisetteData)
+                                        let session = ALTAppleAPISession(dsid: dsid, authToken: token, anisetteData: anisetteData, xcodeVersion: xcodeVersion)
                                         self.fetchAccount(session: session) { result in
                                             switch result {
                                             case let .failure(error): completionHandler(nil, nil, error)
@@ -253,13 +254,14 @@ private extension ALTAppleAPI {
     func requestTrustedDeviceTwoFactorCode(dsid: String,
                                            idmsToken: String,
                                            anisetteData: ALTAnisetteData,
+                                           xcodeVersion: String,
                                            verificationHandler: @escaping (@escaping (String?) -> Void) -> Void,
                                            completionHandler: @escaping (Result<Void, Error>) -> Void) {
         verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode starting for dsid: \(dsid)")
         let requestURL = URL(string: "https://gsa.apple.com/auth/verify/trusteddevice")!
         let verifyURL = URL(string: "https://gsa.apple.com/grandslam/GsService2/validate")!
 
-        let request = makeTwoFactorCodeRequest(url: requestURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData)
+        let request = makeTwoFactorCodeRequest(url: requestURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData, xcodeVersion: xcodeVersion)
 
         let requestCodeTask = session.dataTask(with: request) { data, response, error in
             let httpResponse = response as? HTTPURLResponse
@@ -278,7 +280,7 @@ private extension ALTAppleAPI {
                     do {
                         guard let verificationCode = verificationCode else { throw ALTAppleAPIError.requiresTwoFactorAuthentication }
 
-                        var request = self.makeTwoFactorCodeRequest(url: verifyURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData)
+                        var request = self.makeTwoFactorCodeRequest(url: verifyURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData, xcodeVersion: xcodeVersion)
                         request.allHTTPHeaderFields?["security-code"] = verificationCode
 
                         verboseLog("[AltSign] requestTrustedDeviceTwoFactorCode verifying code...")
@@ -334,13 +336,14 @@ private extension ALTAppleAPI {
     func requestSMSTwoFactorCode(dsid: String,
                                  idmsToken: String,
                                  anisetteData: ALTAnisetteData,
+                                 xcodeVersion: String,
                                  verificationHandler: @escaping (@escaping (String?) -> Void) -> Void,
                                  completionHandler: @escaping (Result<Void, Error>) -> Void) {
         verboseLog("[AltSign] requestSMSTwoFactorCode starting for dsid: \(dsid)")
         let requestURL = URL(string: "https://gsa.apple.com/auth/verify/phone/put?mode=sms")!
         let verifyURL = URL(string: "https://gsa.apple.com/auth/verify/phone/securitycode?referrer=/auth/verify/phone/put")!
 
-        var request = makeTwoFactorCodeRequest(url: requestURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData)
+        var request = makeTwoFactorCodeRequest(url: requestURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData, xcodeVersion: xcodeVersion)
         request.httpMethod = "POST"
 
         do {
@@ -375,7 +378,7 @@ private extension ALTAppleAPI {
                     do {
                         guard let verificationCode = verificationCode else { throw ALTAppleAPIError.requiresTwoFactorAuthentication }
 
-                        var request = self.makeTwoFactorCodeRequest(url: verifyURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData)
+                        var request = self.makeTwoFactorCodeRequest(url: verifyURL, dsid: dsid, idmsToken: idmsToken, anisetteData: anisetteData, xcodeVersion: xcodeVersion)
                         request.httpMethod = "POST"
 
                         let bodyXML = [
@@ -555,7 +558,8 @@ private extension ALTAppleAPI {
     func makeTwoFactorCodeRequest(url: URL,
                                   dsid: String,
                                   idmsToken: String,
-                                  anisetteData: ALTAnisetteData) -> URLRequest {
+                                  anisetteData: ALTAnisetteData,
+                                  xcodeVersion: String) -> URLRequest {
         let identityToken = dsid + ":" + idmsToken
 
         let identityTokenData = identityToken.data(using: .utf8)!
@@ -567,7 +571,7 @@ private extension ALTAppleAPI {
             "Content-Type": "application/x-plist",
             "User-Agent": "Xcode",
             "X-Apple-App-Info": "com.apple.gs.xcode.auth",
-            "X-Xcode-Version": "11.2 (11B41)",
+            "X-Xcode-Version": xcodeVersion,
             "X-Apple-Identity-Token": encodedIdentityToken,
             "X-Apple-I-MD-M": anisetteData.machineID,
             "X-Apple-I-MD": anisetteData.oneTimePassword,

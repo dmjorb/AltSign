@@ -15,15 +15,18 @@ public final class ALTAppleAPISession: NSObject {
     public var dsid: String
     public var authToken: String
     public var anisetteData: ALTAnisetteData
+    public var xcodeVersion: String
 
     public init(
         dsid: String,
         authToken: String,
-        anisetteData: ALTAnisetteData
+        anisetteData: ALTAnisetteData,
+        xcodeVersion: String
     ) {
         self.dsid = dsid
         self.authToken = authToken
         self.anisetteData = anisetteData
+        self.xcodeVersion = xcodeVersion
         super.init()
     }
 }
@@ -196,7 +199,7 @@ extension ALTAppleAPI {
             "Accept": "text/x-xml-plist",
             "Accept-Language": "en-us",
             "X-Apple-App-Info": "com.apple.gs.xcode.auth",
-            "X-Xcode-Version": "11.2 (11B41)",
+            "X-Xcode-Version": apiSession.xcodeVersion,
             "X-Apple-I-Identity-Id": apiSession.dsid,
             "X-Apple-GS-Token": apiSession.authToken,
             "X-Apple-I-MD-M": a.machineID,
@@ -252,6 +255,7 @@ extension ALTAppleAPI {
         additionalParameters: [String: String]?,
         session apiSession: ALTAppleAPISession,
         team: ALTTeam,
+        includeAnisette: Bool = true,
         completionHandler: @escaping ([String: Any]?, Error?) -> Void
     ) {
 
@@ -297,26 +301,29 @@ extension ALTAppleAPI {
             forHTTPHeaderField: "X-HTTP-Method-Override"
         )
 
-        let a = apiSession.anisetteData
-
-        let headers: [String: String] = [
+        var headers: [String: String] = [
             "Content-Type": "application/vnd.api+json",
             "User-Agent": "Xcode",
             "Accept": "application/vnd.api+json",
             "Accept-Language": "en-us",
             "X-Apple-App-Info": "com.apple.gs.xcode.auth",
-            "X-Xcode-Version": "11.2 (11B41)",
+            "X-Xcode-Version": apiSession.xcodeVersion,
             "X-Apple-I-Identity-Id": apiSession.dsid,
-            "X-Apple-GS-Token": apiSession.authToken,
-            "X-Apple-I-MD-M": a.machineID,
-            "X-Apple-I-MD": a.oneTimePassword,
-            "X-Apple-I-MD-LU": a.localUserID,
-            "X-Apple-I-MD-RINFO": "\(a.routingInfo)",
-            "X-Mme-Device-Id": a.deviceUniqueIdentifier,
-            "X-MMe-Client-Info": a.deviceDescription,
-            "X-Apple-I-Client-Time": dateFormatter.string(from: a.date),
-            "X-Apple-Locale": a.locale.identifier,
-            "X-Apple-I-TimeZone": a.timeZone.abbreviation(for: a.date) ?? ""        ]
+            "X-Apple-GS-Token": apiSession.authToken
+        ]
+
+        if includeAnisette {
+            let a = apiSession.anisetteData
+            headers["X-Apple-I-MD-M"] = a.machineID
+            headers["X-Apple-I-MD"] = a.oneTimePassword
+            headers["X-Apple-I-MD-LU"] = a.localUserID
+            headers["X-Apple-I-MD-RINFO"] = "\(a.routingInfo)"
+            headers["X-Mme-Device-Id"] = a.deviceUniqueIdentifier
+            headers["X-MMe-Client-Info"] = a.deviceDescription
+            headers["X-Apple-I-Client-Time"] = dateFormatter.string(from: a.date)
+            headers["X-Apple-Locale"] = a.locale.identifier
+            headers["X-Apple-I-TimeZone"] = a.timeZone.abbreviation(for: a.date) ?? ""
+        }
 
         headers.forEach {
             request.setValue($1, forHTTPHeaderField: $0)

@@ -140,12 +140,22 @@ public extension ALTAppleAPI {
     }
     
     /* Certificates */
-    func fetchCertificates(for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping ([ALTCertificate]?, Error?) -> Void) {
-        verboseLog("[AltSign] fetchCertificates starting for team: \(team.name)")
+    func fetchCertificates(for team: ALTTeam, session: ALTAppleAPISession, 
+                           types: [String] = ["IOS_DEVELOPMENT", "DEVELOPMENT", "APPLE_DEVELOPMENT"], 
+                           completionHandler: @escaping ([ALTCertificate]?, Error?) -> Void) 
+    {
+        verboseLog("[AltSign] fetchCertificates starting for team: \(team.name) (types: \(types))")
         let url = URL(string: "certificates", relativeTo: self.servicesBaseURL)!
         let request = URLRequest(url: url)
         
-        self.sendServicesRequest(request, additionalParameters: ["filter[certificateType]": "IOS_DEVELOPMENT,DEVELOPMENT"], session: session, team: team) { responseDictionary, requestError in
+        let typesString = types.joined(separator: ",")
+        self.sendServicesRequest(
+            request, 
+            additionalParameters: ["filter[certificateType]": typesString], 
+            session: session, 
+            team: team, 
+            includeAnisette: false
+        ){ responseDictionary, requestError in
             if let error = requestError {
                 verboseLog("[AltSign] fetchCertificates request failed with error: \(error)")
             }
@@ -646,7 +656,7 @@ public extension ALTAppleAPI {
             "Accept": "text/x-xml-plist",
             "Accept-Language": "en-us",
             "X-Apple-App-Info": "com.apple.gs.xcode.auth",
-            "X-Xcode-Version": "11.2 (11B41)",
+            "X-Xcode-Version": apiSession.xcodeVersion,
             "X-Apple-I-Identity-Id": apiSession.dsid,
             "X-Apple-GS-Token": apiSession.authToken,
             "X-Apple-I-MD-M": a.machineID,
