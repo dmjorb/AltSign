@@ -23,7 +23,7 @@ public final class ALTProvisioningProfile: NSObject, NSCopying {
     public private(set) var expirationDate: Date
 
     public private(set) var entitlements: [ALTEntitlement: any Sendable]
-    public private(set) var certificates: [ALTCertificate]
+    public private(set) var certificates: [ALTX509Certificate]
     public private(set) var deviceIDs: [String]
 
     public private(set) var isFreeProvisioningProfile: Bool
@@ -110,11 +110,11 @@ public final class ALTProvisioningProfile: NSObject, NSCopying {
         self.bundleIdentifier = bundleID
 
         // Certificates
-        var parsedCertificates: [ALTCertificate] = []
+        var parsedCertificates: [ALTX509Certificate] = []
 
         let certArray = dict["DeveloperCertificates"] as? [Data] ?? []
         for certData in certArray {
-            if let cert = ALTCertificate(data: certData) {
+            if let cert = ALTX509Certificate(data: certData) {
                 parsedCertificates.append(cert)
             }
         }
