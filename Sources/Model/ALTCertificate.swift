@@ -136,7 +136,7 @@ public final class ALTCertificate: NSObject {
     // MARK: Properties
 
     public var x509: ALTX509Certificate
-    public var privateKey: Data?
+    public var privateKey: Data
 
     // Forwarded Properties for Compatibility
     public var name:              String  { get { x509.name }              set { x509.name = newValue } }
@@ -149,22 +149,21 @@ public final class ALTCertificate: NSObject {
 
     // MARK: Designated Init
 
-    public init(x509: ALTX509Certificate, privateKey: Data? = nil) {
+    public init(x509: ALTX509Certificate, privateKey: Data) {
         self.x509 = x509
         self.privateKey = privateKey
         super.init()
     }
 
-    public convenience init(name: String, serialNumber: String, data: Data?, privateKey: Data? = nil) {
+    public convenience init?(name: String, serialNumber: String, data: Data?, privateKey: Data?) {
+        guard let privateKey = privateKey else { return nil }
         let x509 = ALTX509Certificate(name: name, serialNumber: serialNumber, data: data)
         self.init(x509: x509, privateKey: privateKey)
     }
 
-    // MARK: Response Init
-
-    public convenience init?(responseDictionary: [String: Any]) {
-        guard let x509 = ALTX509Certificate(responseDictionary: responseDictionary) else { return nil }
-        self.init(x509: x509)
+    public convenience init?(x509: ALTX509Certificate, privateKey: Data?) {
+        guard let privateKey = privateKey else { return nil }
+        self.init(x509: x509, privateKey: privateKey)
     }
 
     // MARK: P12 Init
@@ -221,9 +220,9 @@ public final class ALTCertificate: NSObject {
 
     // MARK: PEM Init
 
-    public convenience init?(data: Data) {
+    public convenience init?(data: Data, privateKey: Data) {
         guard let x509 = ALTX509Certificate(data: data) else { return nil }
-        self.init(x509: x509)
+        self.init(x509: x509, privateKey: privateKey)
     }
 
     // MARK: NSObject
@@ -289,3 +288,11 @@ public extension Data {
 public typealias ALTCertificateError = SwiftBridge.ALTCertificateError
 public typealias MachOParser = SwiftBridge.MachOParser
 public typealias MachOParserError = SwiftBridge.MachOParserError
+
+extension ALTX509Certificate: Identifiable {
+    public var id: String { serialNumber }
+}
+
+extension ALTCertificate: Identifiable {
+    public var id: String { serialNumber }
+}
