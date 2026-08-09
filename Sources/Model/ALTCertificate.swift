@@ -7,7 +7,7 @@ import Foundation
 import SwiftBridge
 
 
-public final class ALTCertificate: NSObject {
+public final class ALTX509Certificate: NSObject {
 
     // MARK: Properties
 
@@ -20,16 +20,15 @@ public final class ALTCertificate: NSObject {
     public var requesterEmail: String?
 
     public var data: Data?
-    public var privateKey: Data?
 
-    // MARK: PEM
+    // MARK: PEM Constants
 
-    private static let pemPrefix = "-----BEGIN CERTIFICATE-----"
-    private static let pemSuffix = "-----END CERTIFICATE-----"
+    fileprivate static let pemPrefix = "-----BEGIN CERTIFICATE-----"
+    fileprivate static let pemSuffix = "-----END CERTIFICATE-----"
 
     // MARK: Designated Init
 
-    init(name: String, serialNumber: String, data: Data?) {
+    public init(name: String, serialNumber: String, data: Data?) {
         self.name = name
         self.serialNumber = serialNumber
         self.data = data
@@ -39,7 +38,6 @@ public final class ALTCertificate: NSObject {
     // MARK: Response Init
 
     public convenience init?(responseDictionary: [String: Any]) {
-
         let identifier = responseDictionary["id"] as? String
         let attributes =
             (responseDictionary["attributes"] as? [String: Any])
@@ -49,8 +47,7 @@ public final class ALTCertificate: NSObject {
 
         if let data = attributes["certContent"] as? Data {
             certData = data
-        }
-        else if let base64 = attributes["certificateContent"] as? String {
+        } else if let base64 = attributes["certificateContent"] as? String {
             certData = Data(base64Encoded: base64)
         }
 
@@ -83,6 +80,93 @@ public final class ALTCertificate: NSObject {
         self.requesterEmail = attributes["requesterEmail"] as? String
     }
 
+    // MARK: PEM Init
+
+    public convenience init?(data: Data) {
+        var pemData = data
+
+        if let prefix = String(
+            data: data.prefix(Self.pemPrefix.count),
+            encoding: .utf8
+        ),
+        prefix != Self.pemPrefix {
+            let base64 = data.base64EncodedString(
+                options: .lineLength64Characters
+            )
+            let content = "\(Self.pemPrefix)\n\(base64)\n\(Self.pemSuffix)"
+            pemData = content.data(using: .utf8)!
+        }
+
+        guard let parsed = CertificatesManager.parseCertificate(pemData) else { return nil }
+
+        var serial = parsed.serial
+        if let idx = serial.firstIndex(where: { $0 != "0" }) {
+            serial = String(serial[idx...])
+        } else {
+            return nil
+        }
+
+        self.init(
+            name: parsed.name,
+            serialNumber: serial,
+            data: pemData
+        )
+    }
+
+    // MARK: NSObject
+
+    public override var description: String {
+        "<\(NSStringFromClass(Swift.type(of: self))): \(Unmanaged.passUnretained(self).toOpaque()), Name: \(name), SN: \(serialNumber)>"
+    }
+
+    public override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? ALTX509Certificate else {
+            return false
+        }
+        return serialNumber == other.serialNumber
+    }
+
+    public override var hash: Int {
+        serialNumber.hashValue
+    }
+}
+
+public final class ALTCertificate: NSObject {
+
+    // MARK: Properties
+
+    public var x509: ALTX509Certificate
+    public var privateKey: Data?
+
+    // Forwarded Properties for Compatibility
+    public var name:              String  { get { x509.name }              set { x509.name = newValue } }
+    public var serialNumber:      String  { get { x509.serialNumber }      set { x509.serialNumber = newValue } }
+    public var identifier:        String? { get { x509.identifier }        set { x509.identifier = newValue } }
+    public var machineName:       String? { get { x509.machineName }       set { x509.machineName = newValue } }
+    public var machineIdentifier: String? { get { x509.machineIdentifier } set { x509.machineIdentifier = newValue } }
+    public var requesterEmail:    String? { get { x509.requesterEmail }    set { x509.requesterEmail = newValue } }
+    public var data:              Data?   { get { x509.data }              set { x509.data = newValue } }
+
+    // MARK: Designated Init
+
+    public init(x509: ALTX509Certificate, privateKey: Data? = nil) {
+        self.x509 = x509
+        self.privateKey = privateKey
+        super.init()
+    }
+
+    public convenience init(name: String, serialNumber: String, data: Data?, privateKey: Data? = nil) {
+        let x509 = ALTX509Certificate(name: name, serialNumber: serialNumber, data: data)
+        self.init(x509: x509, privateKey: privateKey)
+    }
+
+    // MARK: Response Init
+
+    public convenience init?(responseDictionary: [String: Any]) {
+        guard let x509 = ALTX509Certificate(responseDictionary: responseDictionary) else { return nil }
+        self.init(x509: x509)
+    }
+
     // MARK: P12 Init
 
     /// Unencrypted PKCS#12 Init (pass = nil)
@@ -109,14 +193,14 @@ public final class ALTCertificate: NSObject {
         var pemData = result.cert
 
         if let prefix = String(
-            data: pemData.prefix(Self.pemPrefix.count),
+            data: pemData.prefix(ALTX509Certificate.pemPrefix.count),
             encoding: .utf8
         ),
-        prefix != Self.pemPrefix {
+        prefix != ALTX509Certificate.pemPrefix {
             let base64 = pemData.base64EncodedString(
                 options: .lineLength64Characters
             )
-            let content = "\(Self.pemPrefix)\n\(base64)\n\(Self.pemSuffix)"
+            let content = "\(ALTX509Certificate.pemPrefix)\n\(base64)\n\(ALTX509Certificate.pemSuffix)"
             pemData = content.data(using: .utf8)!
         }
 
@@ -131,59 +215,21 @@ public final class ALTCertificate: NSObject {
             throw ALTCertificateError.extractionFailed(cause: "The parsed certificate has a missing or empty serial number.")
         }
 
-        self.init(
-            name: parsed.name,
-            serialNumber: serial,
-            data: pemData
-        )
-        self.privateKey = result.key
+        let x509 = ALTX509Certificate(name: parsed.name, serialNumber: serial, data: pemData)
+        self.init(x509: x509, privateKey: result.key)
     }
 
     // MARK: PEM Init
 
     public convenience init?(data: Data) {
-
-        var pemData = data
-
-        if let prefix = String(
-            data: data.prefix(Self.pemPrefix.count),
-            encoding: .utf8
-        ),
-        prefix != Self.pemPrefix {
-
-            let base64 = data.base64EncodedString(
-                options: .lineLength64Characters
-            )
-
-            let content =
-            "\(Self.pemPrefix)\n\(base64)\n\(Self.pemSuffix)"
-
-            pemData = content.data(using: .utf8)!
-        }
-
-        guard let parsed =
-            CertificatesManager.parseCertificate(pemData)
-        else { return nil }
-
-        var serial = parsed.serial
-
-        if let idx = serial.firstIndex(where: { $0 != "0" }) {
-            serial = String(serial[idx...])
-        } else {
-            return nil
-        }
-
-        self.init(
-            name: parsed.name,
-            serialNumber: serial,
-            data: pemData
-        )
+        guard let x509 = ALTX509Certificate(data: data) else { return nil }
+        self.init(x509: x509)
     }
 
     // MARK: NSObject
 
     public override var description: String {
-        "<\(NSStringFromClass(Swift.type(of: self))): \(Unmanaged.passUnretained(self).toOpaque()), Name: \(name), SN: \(serialNumber)>"
+        "<\(NSStringFromClass(Swift.type(of: self))): \(Unmanaged.passUnretained(self).toOpaque()), Name: \(name), SN: \(serialNumber), HasPrivateKey: \(privateKey != nil)>"
     }
 
     public override func isEqual(_ object: Any?) -> Bool {
