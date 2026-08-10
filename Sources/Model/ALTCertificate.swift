@@ -7,7 +7,9 @@ import Foundation
 import SwiftBridge
 
 
-public final class ALTX509Certificate: NSObject {
+public final class ALTX509Certificate: NSObject, Identifiable {
+
+    public var id: String { serialNumber }
 
     // MARK: Properties
 
@@ -83,6 +85,14 @@ public final class ALTX509Certificate: NSObject {
         self.machineName = machineName
         self.machineIdentifier = machineIdentifier
         self.requesterEmail = attributes["requesterEmail"] as? String
+
+        let dateFormatter = ISO8601DateFormatter()
+        if let creationString = attributes["createdDate"] as? String, let date = dateFormatter.date(from: creationString) {
+            self.creationDate = date
+        }
+        if let expirationString = attributes["expirationDate"] as? String, let date = dateFormatter.date(from: expirationString) {
+            self.expiryDate = date
+        }
     }
 
     // MARK: PEM Init
@@ -114,7 +124,9 @@ public final class ALTX509Certificate: NSObject {
         self.init(
             name: parsed.name,
             serialNumber: serial,
-            data: pemData
+            data: pemData,
+            creationDate: parsed.creationDate ?? .distantPast,
+            expiryDate: parsed.expiryDate ?? .distantPast
         )
     }
 
@@ -136,7 +148,9 @@ public final class ALTX509Certificate: NSObject {
     }
 }
 
-public final class ALTCertificate: NSObject {
+public final class ALTCertificate: NSObject, Identifiable {
+
+    public var id: String { serialNumber }
 
     // MARK: Properties
 
@@ -293,11 +307,3 @@ public extension Data {
 public typealias ALTCertificateError = SwiftBridge.ALTCertificateError
 public typealias MachOParser = SwiftBridge.MachOParser
 public typealias MachOParserError = SwiftBridge.MachOParserError
-
-extension ALTX509Certificate: Identifiable {
-    public var id: String { serialNumber }
-}
-
-extension ALTCertificate: Identifiable {
-    public var id: String { serialNumber }
-}
