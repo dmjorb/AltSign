@@ -142,7 +142,7 @@ public extension ALTAppleAPI {
     /* Certificates */
     func fetchCertificates(for team: ALTTeam, session: ALTAppleAPISession, 
                            types: [String] = ["IOS_DEVELOPMENT", "DEVELOPMENT"], 
-                           completionHandler: @escaping ([ALTCertificate]?, Error?) -> Void) 
+                           completionHandler: @escaping ([ALTX509Certificate]?, Error?) -> Void) 
     {
         verboseLog("[AltSign] fetchCertificates starting for team: \(team.name) (types: \(types))")
         let url = URL(string: "certificates", relativeTo: self.servicesBaseURL)!
@@ -155,7 +155,7 @@ public extension ALTAppleAPI {
             session: session, 
             team: team, 
             includeAnisette: true
-        ){ responseDictionary, requestError in
+        ) { responseDictionary, requestError in
             if let error = requestError {
                 verboseLog("[AltSign] fetchCertificates request failed with error: \(error)")
             }
@@ -165,15 +165,15 @@ public extension ALTAppleAPI {
             }
             
             var error: Error? = nil
-            let certificates = self.processResponse(responseDictionary, parseHandler: {
+            let certificates = self.processResponse(responseDictionary, parseHandler: { () -> [ALTX509Certificate]? in
                 guard let array = responseDictionary["data"] as? [[String: Any]] else { return nil }
-                var list = [ALTCertificate]()
+                var list = [ALTX509Certificate]()
                 for dict in array {
-                    guard let certificate = ALTCertificate(responseDictionary: dict) else { return nil }
+                    guard let certificate = ALTX509Certificate(responseDictionary: dict) else { return nil }
                     list.append(certificate)
                 }
                 return list
-            }, resultCodeHandler: nil, error: &error) as? [ALTCertificate]
+            }, resultCodeHandler: nil, error: &error) as? [ALTX509Certificate]
             
             verboseLog("[AltSign] fetchCertificates completed: \(certificates?.map { "\($0.name ?? "nil") (\($0.identifier ?? "nil"))" } ?? [])")
             completionHandler(certificates, error)
@@ -210,10 +210,10 @@ public extension ALTAppleAPI {
             
             var error: Error? = nil
             let certificate = self.processResponse(responseDictionary, parseHandler: {
-                guard let dict = responseDictionary["certRequest"] as? [String: Any] else { return nil }
-                let cert = ALTCertificate(responseDictionary: dict)
-                cert?.privateKey = request.privateKey
-                return cert
+                guard let dict = responseDictionary["certRequest"] as? [String: Any],
+                      let x509 = ALTX509Certificate(responseDictionary: dict)
+                else { return nil }
+                return ALTCertificate(x509: x509, privateKey: request.privateKey)
             }, resultCodeHandler: { resultCode in
                 if resultCode == 3250 {
                     return NSError(domain: ALTAppleAPIErrorDomain, code: ALTAppleAPIError.invalidCertificateRequest.rawValue, userInfo: nil) as Error
@@ -229,7 +229,7 @@ public extension ALTAppleAPI {
         }
     }
     
-    func revoke(_ certificate: ALTCertificate, for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (Bool, Error?) -> Void) {
+    func revoke(_ certificate: ALTX509Certificate, for team: ALTTeam, session: ALTAppleAPISession, completionHandler: @escaping (Bool, Error?) -> Void) {
         verboseLog("[AltSign] revoke certificate starting for: \(certificate.name ?? "nil") (ID: \(certificate.identifier ?? "nil"))")
         let url = URL(string: "certificates/\(certificate.identifier ?? "nil")", relativeTo: self.servicesBaseURL)!
         var request = URLRequest(url: url)
