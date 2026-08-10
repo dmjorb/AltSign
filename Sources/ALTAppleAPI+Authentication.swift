@@ -604,9 +604,80 @@ private extension ALTAppleAPI {
             return jsonString
         }
         if let data = payload as? Data {
-            return String(data: data, encoding: .utf8) ?? data.hexEncodedString()
+            if let str = String(data: data, encoding: .utf8) {
+                return formatPayloadString(str)
+            }
+            return data.hexEncodedString()
+        }
+        if let str = payload as? String {
+            return formatPayloadString(str)
         }
         return "\(payload)"
+    }
+
+    private func formatPayloadString(_ str: String) -> String {
+        let trimmed = str.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("<") {
+            return prettyPrintXML(trimmed)
+        }
+        return trimmed
+    }
+
+    private func prettyPrintXML(_ rawXML: String) -> String {
+        let pattern = "(<[^>]+>)|([^<]+)"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
+            return rawXML
+        }
+
+        let nsString = rawXML as NSString
+        let matches = regex.matches(in: rawXML, options: [], range: NSRange(location: 0, length: nsString.length))
+
+        var result: [String] = []
+        var indentLevel = 0
+
+        for match in matches {
+            var token = nsString.substring(with: match.range).trimmingCharacters(in: .whitespacesAndNewlines)
+            if token.isEmpty { continue }
+
+            // Collapse internal newlines and multiple spaces inside XML tags
+            if token.hasPrefix("<") && !token.hasPrefix("<![CDATA[") {
+                token = token.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            }
+
+            if token.hasPrefix("</") {
+                indentLevel = max(0, indentLevel - 1)
+                let indent = String(repeating: "  ", count: indentLevel)
+                result.append("\(indent)\(token)")
+            } else if token.hasPrefix("<?") || token.hasPrefix("<!") || token.hasSuffix("/>") {
+                let indent = String(repeating: "  ", count: indentLevel)
+                result.append("\(indent)\(token)")
+            } else if token.hasPrefix("<") {
+                let indent = String(repeating: "  ", count: indentLevel)
+                result.append("\(indent)\(token)")
+                indentLevel += 1
+            } else {
+                let baseIndent = String(repeating: "  ", count: indentLevel)
+                let subLines = token.components(separatedBy: .newlines)
+                var cssIndent = 0
+                for subLine in subLines {
+                    let subTrimmed = subLine.trimmingCharacters(in: .whitespaces)
+                    if subTrimmed.isEmpty { continue }
+
+                    if subTrimmed.hasPrefix("}") {
+                        cssIndent = max(0, cssIndent - 1)
+                    }
+
+                    let extraIndent = String(repeating: "  ", count: cssIndent)
+                    result.append("\(baseIndent)\(extraIndent)\(subTrimmed)")
+
+                    if subTrimmed.hasSuffix("{") {
+                        cssIndent += 1
+                    }
+                }
+            }
+        }
+
+        return result.joined(separator: "\n")
     }
 }
 
