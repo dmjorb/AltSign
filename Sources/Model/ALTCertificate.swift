@@ -19,6 +19,9 @@ public final class ALTX509Certificate: NSObject {
     public var machineIdentifier: String?
     public var requesterEmail: String?
 
+    public var creationDate: Date = Date.distantPast
+    public var expiryDate: Date = Date.distantPast
+
     public var data: Data?
 
     // MARK: PEM Constants
@@ -28,10 +31,12 @@ public final class ALTX509Certificate: NSObject {
 
     // MARK: Designated Init
 
-    public init(name: String, serialNumber: String, data: Data?) {
+    public init(name: String, serialNumber: String, data: Data?, creationDate: Date = Date.distantPast, expiryDate: Date = Date.distantPast) {
         self.name = name
         self.serialNumber = serialNumber
         self.data = data
+        self.creationDate = creationDate
+        self.expiryDate = expiryDate
         super.init()
     }
 

@@ -285,9 +285,24 @@ public enum CertificatesManager {
         return (certData, keyData)
     }
 
+    private static func parseASN1Time(_ time: UnsafePointer<ASN1_TIME>?) -> Date? {
+        guard let time = time else { return nil }
+        var tm = tm()
+        guard ASN1_TIME_to_tm(time, &tm) == 1 else { return nil }
+        var components = DateComponents()
+        components.year = Int(tm.tm_year) + 1900
+        components.month = Int(tm.tm_mon) + 1
+        components.day = Int(tm.tm_mday)
+        components.hour = Int(tm.tm_hour)
+        components.minute = Int(tm.tm_min)
+        components.second = Int(tm.tm_sec)
+        components.timeZone = TimeZone(secondsFromGMT: 0)
+        return Calendar(identifier: .gregorian).date(from: components)
+    }
+
     public static func parseCertificate(
         _ data: Data
-    ) -> (name: String, serial: String)? {
+    ) -> (name: String, serial: String, creationDate: Date?, expiryDate: Date?)? {
 
         verboseLog("[AltSign] CertificatesManager.parseCertificate started. Cert size: \(data.count) bytes")
 
@@ -316,8 +331,11 @@ public enum CertificatesManager {
         defer { CRYPTO_free(hexPtr, nil, 0) }
 
         let serial = String(cString: hexPtr)
+        let creationDate = parseASN1Time(X509_get0_notBefore(cert))
+        let expiryDate = parseASN1Time(X509_get0_notAfter(cert))
+
         verboseLog("[AltSign] CertificatesManager.parseCertificate succeeded. Name: \(name), Serial: \(serial)")
-        return (name, serial)
+        return (name, serial, creationDate, expiryDate)
     }
 
     public static func createPKCS12(
