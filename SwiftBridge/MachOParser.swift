@@ -539,74 +539,50 @@ public final class MachOParser {
 fileprivate struct ASN1Decoder {
     static func findCertificates(in data: Data) -> [Data] {
         var results = [Data]()
+        var offset = 0
         
-        func parseTLV(offset: inout Int, limit: Int) {
-            guard offset + 2 <= limit else { return }
-            let tag = data[offset]
-            let lengthByte = data[offset + 1]
-            offset += 2
+        while offset < data.count - 4 {
+            guard data[offset] == 0x30 else {
+                offset += 1
+                continue
+            }
+            
+            let tagOffset = offset
+            var cursor = offset + 1
+            
+            let lengthByte = data[cursor]
+            cursor += 1
             
             var length = Int(lengthByte)
             if lengthByte & 0x80 != 0 {
                 let numBytes = Int(lengthByte & 0x7F)
-                guard offset + numBytes <= limit else { return }
+                guard numBytes > 0 && numBytes <= 4 && cursor + numBytes <= data.count else {
+                    offset += 1
+                    continue
+                }
                 var val = 0
                 for i in 0..<numBytes {
-                    val = (val << 8) | Int(data[offset + i])
+                    val = (val << 8) | Int(data[cursor + i])
                 }
-                offset += numBytes
+                cursor += numBytes
                 length = val
             }
             
-            guard offset + length <= limit else { return }
+            let totalCertLength = (cursor - tagOffset) + length
+            guard length >= 200 && length <= 8192 && tagOffset + totalCertLength <= data.count else {
+                offset += 1
+                continue
+            }
             
-            if tag == 0x30 {
-                let start = offset
-                var subOffset = offset
-                parseTLV(offset: &subOffset, limit: start + length)
-                offset += length
-            } else if tag == 0xA0 { // Context-specific [0] (certificates field)
-                var subOffset = offset
-                let subLimit = offset + length
-                while subOffset < subLimit {
-                    let certStart = subOffset
-                    var tempOffset = subOffset
-                    guard tempOffset + 2 <= subLimit else { break }
-                    let cTag = data[tempOffset]
-                    let cLenByte = data[tempOffset + 1]
-                    tempOffset += 2
-                    var cLen = Int(cLenByte)
-                    if cLenByte & 0x80 != 0 {
-                        let num = Int(cLenByte & 0x7F)
-                        guard tempOffset + num <= subLimit else { break }
-                        var v = 0
-                        for i in 0..<num {
-                            v = (v << 8) | Int(data[tempOffset + i])
-                        }
-                        tempOffset += num
-                        cLen = v
-                    }
-                    guard tempOffset + cLen <= subLimit else { break }
-                    let certData = data.subdata(in: certStart..<tempOffset + cLen)
-                    if cTag == 0x30 {
-                        results.append(certData)
-                    }
-                    subOffset = tempOffset + cLen
-                }
-                offset += length
+            let candidateData = data.subdata(in: tagOffset..<tagOffset + totalCertLength)
+            if SecCertificateCreateWithData(nil, candidateData as CFData) != nil {
+                results.append(candidateData)
+                offset += totalCertLength
             } else {
-                offset += length
+                offset += 1
             }
         }
         
-        var offset = 0
-        while offset < data.count {
-            let start = offset
-            parseTLV(offset: &offset, limit: data.count)
-            if offset == start {
-                break
-            }
-        }
         return results
     }
 }
