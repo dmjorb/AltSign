@@ -430,7 +430,7 @@ private extension ALTAppleAPI {
         requestCodeTask.resume()
     }
 
-    func fetchAccount(
+    public func fetchAccount(
         session: ALTAppleAPISession,
         completionHandler: @escaping (Result<ALTAccount, Error>) -> Void
     ) {
