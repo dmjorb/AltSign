@@ -35,6 +35,7 @@ int native_bridge_unzGetCurrentFileInfo(
 int native_bridge_unzOpenCurrentFile(native_bridge_unzFile file);
 int native_bridge_unzReadCurrentFile(native_bridge_unzFile file, void *buffer, unsigned len);
 int native_bridge_unzCloseCurrentFile(native_bridge_unzFile file);
+int native_bridge_unzExtractCurrentFileToFile(native_bridge_unzFile file, const char *destination_path);
 
 /* zip */
 
@@ -42,6 +43,8 @@ native_bridge_zipFile native_bridge_zipOpen(const char *path);
 int native_bridge_zipOpenNewFileInZip(native_bridge_zipFile file, const char *filename);
 int native_bridge_zipOpenNewFileInZipWithPermissions(native_bridge_zipFile file, const char *filename, uint32_t permissions);
 int native_bridge_zipWriteInFileInZip(native_bridge_zipFile file, const void *buffer, unsigned len);
+int native_bridge_zipAddFile(native_bridge_zipFile file, const char *source_path, const char *filename_in_zip);
+void native_bridge_zipSetCompressLevel(native_bridge_zipFile file, int16_t level);
 int native_bridge_zipCloseFileInZip(native_bridge_zipFile file);
 int native_bridge_zipClose(native_bridge_zipFile file);
 

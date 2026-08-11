@@ -116,6 +116,18 @@ public enum ZipBridge {
             verboseLog("[AltSign] ZipBridge.Archive.readCurrentFile completed. Read size: \(result.count) bytes")
             return result
         }
+
+        public func extractCurrentFile(to destinationURL: URL) throws {
+            verboseLog("[AltSign] ZipBridge.Archive.extractCurrentFile(to: \(destinationURL.path)) started")
+            let result = destinationURL.path.withCString {
+                native_bridge_unzExtractCurrentFileToFile(handle, $0)
+            }
+            guard result == 0 else {
+                debugLog("[AltSign] ZipBridge.Archive.extractCurrentFile failed: native_bridge_unzExtractCurrentFileToFile returned error")
+                throw ZipError.readFailed(destinationURL)
+            }
+            verboseLog("[AltSign] ZipBridge.Archive.extractCurrentFile completed successfully")
+        }
     }
 
     // MARK: - Archive Writer
@@ -143,6 +155,24 @@ public enum ZipBridge {
             }
             verboseLog("[AltSign] ZipBridge.Writer.create succeeded")
             return Writer(h)
+        }
+
+        public func setCompressLevel(_ level: Int16) {
+            native_bridge_zipSetCompressLevel(handle, level)
+        }
+
+        public func addFile(at fileURL: URL, pathInZip: String) throws {
+            verboseLog("[AltSign] ZipBridge.Writer.addFile started for file: \(fileURL.path) -> \(pathInZip)")
+            let ok = fileURL.path.withCString { sourcePath in
+                pathInZip.withCString { zipPath in
+                    native_bridge_zipAddFile(handle, sourcePath, zipPath) == 0
+                }
+            }
+            guard ok else {
+                debugLog("[AltSign] ZipBridge.Writer.addFile failed for \(fileURL.path)")
+                throw ZipError.writeFailed(fileURL)
+            }
+            verboseLog("[AltSign] ZipBridge.Writer.addFile completed successfully")
         }
 
         public func writeFile(path: String, data: Data?, permissions: UInt32) throws {

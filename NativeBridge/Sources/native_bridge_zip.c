@@ -96,6 +96,13 @@ int native_bridge_unzCloseCurrentFile(native_bridge_unzFile file)
     return mz_zip_reader_entry_close(reader) == MZ_OK ? 0 : -1;
 }
 
+int native_bridge_unzExtractCurrentFileToFile(native_bridge_unzFile file, const char *destination_path)
+{
+    void *reader = (void *)file;
+    if (!reader || !destination_path) return -1;
+    return mz_zip_reader_entry_save_file(reader, destination_path) == MZ_OK ? 0 : -1;
+}
+
 /* ---------- zip ---------- */
 
 native_bridge_zipFile native_bridge_zipOpen(const char *path)
@@ -135,6 +142,21 @@ int native_bridge_zipWriteInFileInZip(native_bridge_zipFile file, const void *bu
     if (len == 0) return 0;
     int32_t written = mz_zip_writer_entry_write(writer, buffer, (int32_t)len);
     return written == (int32_t)len ? 0 : -1;
+}
+
+int native_bridge_zipAddFile(native_bridge_zipFile file, const char *source_path, const char *filename_in_zip)
+{
+    void *writer = (void *)file;
+    if (!writer || !source_path || !filename_in_zip) return -1;
+    return mz_zip_writer_add_file(writer, source_path, filename_in_zip) == MZ_OK ? 0 : -1;
+}
+
+void native_bridge_zipSetCompressLevel(native_bridge_zipFile file, int16_t level)
+{
+    void *writer = (void *)file;
+    if (writer) {
+        mz_zip_writer_set_compress_level(writer, level);
+    }
 }
 
 int native_bridge_zipCloseFileInZip(native_bridge_zipFile file)

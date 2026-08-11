@@ -62,15 +62,16 @@ extension FileManager {
                 withIntermediateDirectories: true
             )
 
-            let data = try archive.readCurrentFile()
+            try archive.extractCurrentFile(to: outputURL)
 
-            createFile(
-                atPath: outputURL.path,
-                contents: data,
-                attributes: [.posixPermissions: NSNumber(value: permissions)]
-            )
+            if permissions != 0 {
+                try setAttributes([.posixPermissions: NSNumber(value: permissions)], ofItemAtPath: outputURL.path)
+            }
 
-            progress?.completedUnitCount += Int64(data.count)
+            if let attributes = try? attributesOfItem(atPath: outputURL.path),
+               let size = attributes[.size] as? NSNumber {
+                progress?.completedUnitCount += size.int64Value
+            }
 
         } while archive.goToNextFile()
         verboseLog("[AltSign] FileManager.unzipArchive completed successfully")
@@ -124,6 +125,7 @@ extension FileManager {
         }
 
         let writer = try ZipBridge.Writer.create(at: ipaURL)
+        writer.setCompressLevel(1) // Fast compression level for re-signing
 
         let payloadRoot =
             URL(fileURLWithPath: "Payload", isDirectory: true)
@@ -153,13 +155,15 @@ extension FileManager {
 
             let attributes = try self.attributesOfItem(atPath: fileURL.path)
             let posixPermissions = (attributes[.posixPermissions] as? NSNumber)?.uint32Value ?? (isDir.boolValue ? Self.defaultDirPermissions : Self.defaultFilePermissions)
-            let fileType = isDir.boolValue ? Self.S_IFDIR : Self.S_IFREG
-            let permissions = fileType + posixPermissions
 
-            verboseLog("[AltSign] FileManager.zipAppBundle: writing zip entry relative: \(relative), path in zip: \(zipPath), isDir: \(isDir.boolValue), permissions: \(String(format: "%0o", permissions))")
-            let data = isDir.boolValue ? nil : try Data(contentsOf: fileURL)
+            verboseLog("[AltSign] FileManager.zipAppBundle: writing zip entry relative: \(relative), path in zip: \(zipPath), isDir: \(isDir.boolValue), permissions: \(String(format: "%0o", posixPermissions))")
 
-            try writer.writeFile(path: zipPath, data: data, permissions: permissions)
+            if isDir.boolValue {
+                let permissions = Self.S_IFDIR + posixPermissions
+                try writer.writeFile(path: zipPath, data: nil, permissions: permissions)
+            } else {
+                try writer.addFile(at: fileURL, pathInZip: zipPath)
+            }
         }
 
         verboseLog("[AltSign] FileManager.zipAppBundle completed. Packaged ipa path: \(ipaURL.path)")
