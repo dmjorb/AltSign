@@ -19,6 +19,7 @@ typedef void* native_bridge_zipFile;
 /* unzip */
 
 native_bridge_unzFile native_bridge_unzOpen(const char *path);
+native_bridge_unzFile native_bridge_unzOpenWithStatus(const char *path, int32_t *status);
 int native_bridge_unzClose(native_bridge_unzFile file);
 
 int native_bridge_unzGetGlobalInfo(native_bridge_unzFile file, void *info);
@@ -40,6 +41,7 @@ int native_bridge_unzExtractCurrentFileToFile(native_bridge_unzFile file, const 
 /* zip */
 
 native_bridge_zipFile native_bridge_zipOpen(const char *path);
+native_bridge_zipFile native_bridge_zipOpenWithStatus(const char *path, int32_t *status);
 int native_bridge_zipOpenNewFileInZip(native_bridge_zipFile file, const char *filename);
 int native_bridge_zipOpenNewFileInZipWithPermissions(native_bridge_zipFile file, const char *filename, uint32_t permissions);
 int native_bridge_zipWriteInFileInZip(native_bridge_zipFile file, const void *buffer, unsigned len);

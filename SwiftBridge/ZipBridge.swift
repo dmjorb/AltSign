@@ -26,10 +26,18 @@ public enum ZipBridge {
 
         public static func open(at url: URL) throws -> Archive {
             verboseLog("[AltSign] ZipBridge.Archive.open(at: \(url.path)) started")
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                debugLog("[AltSign] ZipBridge.Archive.open failed: file not found at \(url.path)")
+                throw ZipError.fileNotFound(url)
+            }
+            var status: Int32 = 0
             guard let h = url.path.withCString({
-                native_bridge_unzOpen($0)
+                native_bridge_unzOpenWithStatus($0, &status)
             }) else {
-                debugLog("[AltSign] ZipBridge.Archive.open failed: corrupt archive or unable to open")
+                debugLog("[AltSign] ZipBridge.Archive.open failed with minizip-ng status: \(status)")
+                if status == -111 /* MZ_OPEN_ERROR */ {
+                    throw ZipError.readFailed(url)
+                }
                 throw ZipError.corruptArchive(url)
             }
             verboseLog("[AltSign] ZipBridge.Archive.open succeeded")
@@ -147,10 +155,11 @@ public enum ZipBridge {
 
         public static func create(at url: URL) throws -> Writer {
             verboseLog("[AltSign] ZipBridge.Writer.create(at: \(url.path)) started")
+            var status: Int32 = 0
             guard let h = url.path.withCString({
-                native_bridge_zipOpen($0)
+                native_bridge_zipOpenWithStatus($0, &status)
             }) else {
-                debugLog("[AltSign] ZipBridge.Writer.create failed: unable to create/open zip file")
+                debugLog("[AltSign] ZipBridge.Writer.create failed with minizip-ng status: \(status)")
                 throw ZipError.writeFailed(url)
             }
             verboseLog("[AltSign] ZipBridge.Writer.create succeeded")

@@ -17,15 +17,26 @@
 
 /* ---------- unzip ---------- */
 
-native_bridge_unzFile native_bridge_unzOpen(const char *path)
+native_bridge_unzFile native_bridge_unzOpenWithStatus(const char *path, int32_t *status)
 {
     void *reader = mz_zip_reader_create();
-    if (!reader) return NULL;
-    if (mz_zip_reader_open_file(reader, path) != MZ_OK) {
+    if (!reader) {
+        if (status) *status = MZ_MEM_ERROR;
+        return NULL;
+    }
+    int32_t err = mz_zip_reader_open_file(reader, path);
+    if (err != MZ_OK) {
+        if (status) *status = err;
         mz_zip_reader_delete(&reader);
         return NULL;
     }
+    if (status) *status = MZ_OK;
     return (native_bridge_unzFile)reader;
+}
+
+native_bridge_unzFile native_bridge_unzOpen(const char *path)
+{
+    return native_bridge_unzOpenWithStatus(path, NULL);
 }
 
 int native_bridge_unzClose(native_bridge_unzFile file)
@@ -105,15 +116,26 @@ int native_bridge_unzExtractCurrentFileToFile(native_bridge_unzFile file, const 
 
 /* ---------- zip ---------- */
 
-native_bridge_zipFile native_bridge_zipOpen(const char *path)
+native_bridge_zipFile native_bridge_zipOpenWithStatus(const char *path, int32_t *status)
 {
     void *writer = mz_zip_writer_create();
-    if (!writer) return NULL;
-    if (mz_zip_writer_open_file(writer, path, 0, 0) != MZ_OK) {
+    if (!writer) {
+        if (status) *status = MZ_MEM_ERROR;
+        return NULL;
+    }
+    int32_t err = mz_zip_writer_open_file(writer, path, 0, 0);
+    if (err != MZ_OK) {
+        if (status) *status = err;
         mz_zip_writer_delete(&writer);
         return NULL;
     }
+    if (status) *status = MZ_OK;
     return (native_bridge_zipFile)writer;
+}
+
+native_bridge_zipFile native_bridge_zipOpen(const char *path)
+{
+    return native_bridge_zipOpenWithStatus(path, NULL);
 }
 
 int native_bridge_zipOpenNewFileInZip(native_bridge_zipFile file, const char *filename)
