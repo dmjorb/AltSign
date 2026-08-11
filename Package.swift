@@ -45,10 +45,18 @@ let package = Package(
             sources: [
                 "NativeBridge/Sources",
                 
-                "Dependencies/minizip/ioapi.c",
-                "Dependencies/minizip/mztools.c",
-                "Dependencies/minizip/unzip.c",
-                "Dependencies/minizip/zip.c",
+                "Dependencies/minizip-ng/mz_crypt.c",
+                "Dependencies/minizip-ng/mz_os.c",
+                "Dependencies/minizip-ng/mz_os_posix.c",
+                "Dependencies/minizip-ng/mz_strm.c",
+                "Dependencies/minizip-ng/mz_strm_buf.c",
+                "Dependencies/minizip-ng/mz_strm_mem.c",
+                "Dependencies/minizip-ng/mz_strm_os_posix.c",
+                "Dependencies/minizip-ng/mz_strm_pkcrypt.c",
+                "Dependencies/minizip-ng/mz_strm_wzaes.c",
+                "Dependencies/minizip-ng/mz_strm_zlib.c",
+                "Dependencies/minizip-ng/mz_zip.c",
+                "Dependencies/minizip-ng/mz_zip_rw.c",
 
                 "Dependencies/ldid/lookup2.c",
                 "Dependencies/ldid/libplist/src/base64.c",
@@ -75,7 +83,8 @@ let package = Package(
             publicHeadersPath: "NativeBridge/include",
 
             cSettings: [
-                .headerSearchPath("Dependencies/minizip"),
+                .headerSearchPath("NativeBridge/include"),
+                .headerSearchPath("Dependencies/minizip-ng"),
 
                 .headerSearchPath("ldid"),
                 .headerSearchPath("Dependencies/ldid"),
@@ -87,6 +96,9 @@ let package = Package(
                 .headerSearchPath("Dependencies/corecrypto/include/corecrypto"),
 
                 .define("unix", to: "1"),
+                .define("HAVE_ZLIB", to: "1"),
+                .define("ZLIB_COMPAT", to: "1"),
+                .define("MZ_ZIP_NO_CRYPTO", to: "1"),
                 .define("CORECRYPTO_DONOT_USE_TRANSPARENT_UNION", to: "1"),
                 .define("NOCRYPT"),
                 .define("NOUNCRYPT"),

@@ -4,3 +4,6 @@
 [submodule "Dependencies/OpenSSL"]
 	path = Dependencies/OpenSSL
 	url = https://github.com/krzyzanowskim/OpenSSL
+[submodule "Dependencies/minizip-ng"]
+	path = Dependencies/minizip-ng
+	url = https://github.com/zlib-ng/minizip-ng
