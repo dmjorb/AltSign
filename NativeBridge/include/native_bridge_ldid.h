@@ -16,7 +16,7 @@ extern "C" {
 
 
 
-int native_bridge_ldid_sign(
+NATIVE_BRIDGE_EXPORT int native_bridge_ldid_sign(
     const char *appPath,
     const uint8_t *keyData,
     int32_t keyLen,

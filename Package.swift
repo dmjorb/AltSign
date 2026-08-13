@@ -106,13 +106,13 @@ let package = Package(
                 .define("NOCRYPT"),
                 .define("NOUNCRYPT"),
 
-                .unsafeFlags(["-w"])
+                .unsafeFlags(["-w", "-fvisibility=hidden"])
             ],
 
             cxxSettings: [
                 .headerSearchPath("NativeBridge/include"),
                 .headerSearchPath("Dependencies/corecrypto/include"),
-                .unsafeFlags(["-w"])
+                .unsafeFlags(["-w", "-fvisibility=hidden"])
             ],
 
             linkerSettings: [

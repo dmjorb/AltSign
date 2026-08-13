@@ -14,24 +14,24 @@ extern "C" {
 
 typedef void* ccsrp_context;
 
-const void* native_bridge_ccsrp_gp_rfc5054_2048(void);   // RFC-5054 2048-bit MODP group
-const void* native_bridge_ccsha256_di(void);             // SHA-256 digest info
+NATIVE_BRIDGE_EXPORT const void* native_bridge_ccsrp_gp_rfc5054_2048(void);   // RFC-5054 2048-bit MODP group
+NATIVE_BRIDGE_EXPORT const void* native_bridge_ccsha256_di(void);             // SHA-256 digest info
 
-ccsrp_context native_bridge_ccsrp_client_new(void);      // allocate & init ctx
-void native_bridge_ccsrp_client_free(ccsrp_context ctx); // free ctx
+NATIVE_BRIDGE_EXPORT ccsrp_context native_bridge_ccsrp_client_new(void);      // allocate & init ctx
+NATIVE_BRIDGE_EXPORT void native_bridge_ccsrp_client_free(ccsrp_context ctx); // free ctx
 
-size_t native_bridge_ccsrp_exchange_size(ccsrp_context ctx); // size of A/B messages
+NATIVE_BRIDGE_EXPORT size_t native_bridge_ccsrp_exchange_size(ccsrp_context ctx); // size of A/B messages
 
 
 /* Generate client public key A, written into A_bytes (must be exchange_size() bytes) */
-int native_bridge_ccsrp_client_start_authentication(
+NATIVE_BRIDGE_EXPORT int native_bridge_ccsrp_client_start_authentication(
     ccsrp_context ctx,
     void *A_bytes,
     void *rng              // NULL -> use ccrng() default
 );
 
 /* Process server challenge; writes M1 verification message into M_bytes */
-int native_bridge_ccsrp_client_process_challenge(
+NATIVE_BRIDGE_EXPORT int native_bridge_ccsrp_client_process_challenge(
     ccsrp_context ctx,
     const void *salt,
     size_t salt_len,
@@ -44,14 +44,14 @@ int native_bridge_ccsrp_client_process_challenge(
 );
 
 /* Verify server proof M2; returns 0 on success */
-int native_bridge_ccsrp_client_verify_session(
+NATIVE_BRIDGE_EXPORT int native_bridge_ccsrp_client_verify_session(
     ccsrp_context ctx,
     const void *M2
 );
 
 /* ── SRP session key ── */
-const void* native_bridge_ccsrp_get_session_key(ccsrp_context ctx);        // raw key bytes
-size_t native_bridge_ccsrp_get_session_key_length(ccsrp_context ctx);      // key length in bytes
+NATIVE_BRIDGE_EXPORT const void* native_bridge_ccsrp_get_session_key(ccsrp_context ctx);        // raw key bytes
+NATIVE_BRIDGE_EXPORT size_t native_bridge_ccsrp_get_session_key_length(ccsrp_context ctx);      // key length in bytes
 
 #ifdef __cplusplus
 }
