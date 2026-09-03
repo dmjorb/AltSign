@@ -57,7 +57,15 @@ public final class ALTAppleAPI: NSObject {
 
     private override init() {
         NSError.registerErrorProviders()
-        session = URLSession(configuration: .ephemeral)
+        // 中国大陆网络下 developerservices2.apple.com 可能被黑洞：
+        // 规则分流代理漏掉该域名时直连会被静默丢包，而本地代理又会保活 TCP，
+        // 默认 URLSession 的 request 超时（数据包间隔）在代理保活下永不触发 → UI 永久卡住。
+        // resource 超时是整个任务的硬上限（含连接/TLS/响应），到点必取消。
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForResource = 45
+        configuration.waitsForConnectivity = false
+        session = URLSession(configuration: configuration)
         dateFormatter = ISO8601DateFormatter()
         baseURL = URL(
             string: "https://developerservices2.apple.com/services/\(ALTProtocolVersion)/"
@@ -141,6 +149,40 @@ extension ALTAppleAPI {
 
 extension ALTAppleAPI {
 
+    /// 带网络层自动重试的 dataTask（只重试网络层错误，Apple 业务错误不重试）。
+    /// 被黑洞的连接超时后新建一条连接重试：偶发抖动、代理切换线路时可自动恢复。
+    func performResilientDataTask(
+        with request: URLRequest,
+        remainingRetries: Int = 1,
+        completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void
+    ) {
+        session.dataTask(with: request) { data, response, error in
+            if let urlError = error as? URLError, remainingRetries > 0 {
+                let retryableCodes: Set<URLError.Code> = [
+                    .timedOut,
+                    .networkConnectionLost,
+                    .notConnectedToInternet,
+                    .cannotConnectToHost,
+                    .cannotFindHost,
+                    .dnsLookupFailed,
+                    .badServerResponse
+                ]
+                if retryableCodes.contains(urlError.code) {
+                    verboseLog("[AltSign] request failed with \(urlError.code), retrying once (\(remainingRetries) left)")
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+                        self.performResilientDataTask(
+                            with: request,
+                            remainingRetries: remainingRetries - 1,
+                            completionHandler: completionHandler
+                        )
+                    }
+                    return
+                }
+            }
+            completionHandler(data, response, error)
+        }.resume()
+    }
+
     func sendRequest(
         url requestURL: URL,
         additionalParameters: [String: String]?,
@@ -217,7 +259,7 @@ extension ALTAppleAPI {
             request.setValue($1, forHTTPHeaderField: $0)
         }
 
-        session.dataTask(with: request) { data, _, error in
+        performResilientDataTask(with: request) { data, _, error in
             if let error {
                 verboseLog("[AltSign] sendRequest failed with error: \(error)")
             }
@@ -242,7 +284,7 @@ extension ALTAppleAPI {
                 verboseLog("[AltSign] sendRequest failed to parse response plist/json. Raw: \(rawStr)")
                 completionHandler(nil, ALTServerError.invalidResponseFormat(rawPayload: rawStr))
             }
-        }.resume()
+        }
     }
 }
 
@@ -329,7 +371,7 @@ extension ALTAppleAPI {
             request.setValue($1, forHTTPHeaderField: $0)
         }
 
-        session.dataTask(with: request) { data, response, error in
+        performResilientDataTask(with: request) { data, response, error in
             if let error {
                 verboseLog("[AltSign] sendServicesRequest failed with error: \(error)")
             }
@@ -364,7 +406,7 @@ extension ALTAppleAPI {
                 verboseLog("[AltSign] sendServicesRequest failed to parse response JSON. Raw: \(rawStr)")
                 completionHandler(nil, ALTServerError.invalidResponseFormat(rawPayload: rawStr))
             }
-        }.resume()
+        }
     }
 }
 

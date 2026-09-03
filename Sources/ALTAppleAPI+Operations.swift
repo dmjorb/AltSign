@@ -675,7 +675,7 @@ public extension ALTAppleAPI {
             request.setValue($1, forHTTPHeaderField: $0)
         }
 
-        session.dataTask(with: request) { data, _, error in
+        performResilientDataTask(with: request) { data, _, error in
             if let error {
                 verboseLog("[AltSign] sendRequest(plist) failed with error: \(error)")
             }
@@ -696,7 +696,7 @@ public extension ALTAppleAPI {
                 verboseLog("[AltSign] sendRequest(plist) failed to parse response plist. Raw: \(rawStr)")
                 completionHandler(nil, ALTServerError.invalidResponseFormat(rawPayload: rawStr))
             }
-        }.resume()
+        }
     }
 
     func sendRequest(
